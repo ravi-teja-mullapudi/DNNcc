@@ -1,4 +1,4 @@
-#include "NDArray.h"
+#include "NDArrayCUDA.h"
 #include <iostream>
 
 __global__ void copy_test(int* input, int xsize, int ysize, int* output) {
@@ -16,8 +16,8 @@ __global__ void copy_test(int* input, int xsize, int ysize, int* output) {
 
 int main() {
 
-    NDArray<int> input({76, 899});
-    NDArray<int> output({76, 899});
+    NDArrayCUDA<int> input({76, 899});
+    NDArrayCUDA<int> output({76, 899});
 
     input.device_allocate();
     output.device_allocate();
