@@ -7,7 +7,7 @@ void conv2d_forward_ref(int batch_size,
                         int filter_height,
                         int filter_width,
                         int stride_h,
-                        int stride_w
+                        int stride_w,
                         NDArray<float>& input,
                         NDArray<float>& weights,
                         NDArray<float>& output);

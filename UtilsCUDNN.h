@@ -4,7 +4,7 @@
 #include <vector>
 #include <cstdio>
 #include <memory>
-#include "NDArray.h"
+#include "NDArrayCUDA.h"
 
 #define cudnn_status_chk(ans) { cudnn_assert((ans), __FILE__, __LINE__); }
 void cudnn_assert(cudnnStatus_t status, const char* file, int line, bool abort = true) {
@@ -412,7 +412,7 @@ class CudnnLRN {
         output_desc_ = TensorDescriptor4d<float>(CUDNN_TENSOR_NCHW, n, c, h, w);
     }
 
-    void forward(NDArray<float>& input, NDArray<float>& output) {
+    void forward(NDArrayCUDA<float>& input, NDArrayCUDA<float>& output) {
         float alpha = 1.0f;
         float beta = 0.0f;
         cudnn_status_chk(cudnnLRNCrossChannelForward(cudnn_handle_.handle(),
@@ -465,7 +465,7 @@ class CudnnAvgpool2d {
 
     std::vector<int> get_output_dims() { return output_dims_; }
 
-    void forward(NDArray<float>& input, NDArray<float>& output) {
+    void forward(NDArrayCUDA<float>& input, NDArrayCUDA<float>& output) {
         cudnn_status_chk(cudnnPoolingForward(cudnn_handle_.handle(),
                                              pool_desc_.desc(),
                                              &alpha_,
@@ -515,7 +515,7 @@ class CudnnMaxpool2d {
 
     std::vector<int> get_output_dims() { return output_dims_; }
 
-    void forward(NDArray<float>& input, NDArray<float>& output) {
+    void forward(NDArrayCUDA<float>& input, NDArrayCUDA<float>& output) {
         cudnn_status_chk(cudnnPoolingForward(cudnn_handle_.handle(),
                                              pool_desc_.desc(),
                                              &alpha_,
@@ -544,7 +544,7 @@ class CudnnConv2d {
     const float beta_  = 0.f;
 
     size_t fwd_workspace_size_;
-    NDArray<float> fwd_workspace_;
+    NDArrayCUDA<float> fwd_workspace_;
 
     public:
     CudnnConv2d(int w, int h, int c, int n, int k, int r, int s,
@@ -590,7 +590,7 @@ class CudnnConv2d {
                                                                  &fwd_workspace_size_));
 
         fwd_workspace_ =
-            NDArray<float>({static_cast<int>(fwd_workspace_size_ / sizeof(float))});
+            NDArrayCUDA<float>({static_cast<int>(fwd_workspace_size_ / sizeof(float))});
         fwd_workspace_.device_allocate();
     }
 
@@ -617,7 +617,7 @@ class CudnnConv2d {
         }
     }
 
-    void forward(NDArray<float>& input, NDArray<float>& filter, NDArray<float>& output) {
+    void forward(NDArrayCUDA<float>& input, NDArrayCUDA<float>& filter, NDArrayCUDA<float>& output) {
         // Convolution forward.
         cudnn_status_chk(cudnnConvolutionForward(cudnn_handle_.handle(),
                                                  &alpha_,
@@ -654,7 +654,7 @@ class CudnnLSTM {
     const float beta_  = 0.f;
 
     size_t fwd_workspace_size_;
-    NDArray<float> fwd_workspace_;
+    NDArrayCUDA<float> fwd_workspace_;
 
     public:
     CudnnLSTM(int hidden_size,
@@ -709,18 +709,18 @@ class CudnnLSTM {
                                                   &fwd_workspace_size_));
 
         fwd_workspace_ =
-            NDArray<float>({static_cast<int>(fwd_workspace_size_ / sizeof(float))});
+            NDArrayCUDA<float>({static_cast<int>(fwd_workspace_size_ / sizeof(float))});
         fwd_workspace_.device_allocate();
     }
 
 
-    void forward(NDArray<float>& input,
-                 NDArray<float>& h_init,
-                 NDArray<float>& c_init,
-                 NDArray<float>& h_final,
-                 NDArray<float>& c_final,
-                 NDArray<float>& weights,
-                 NDArray<float>& output,
+    void forward(NDArrayCUDA<float>& input,
+                 NDArrayCUDA<float>& h_init,
+                 NDArrayCUDA<float>& c_init,
+                 NDArrayCUDA<float>& h_final,
+                 NDArrayCUDA<float>& c_final,
+                 NDArrayCUDA<float>& weights,
+                 NDArrayCUDA<float>& output,
                  int num_steps) {
 
         cudnn_status_chk(cudnnRNNForwardInference(cudnn_handle_.handle(),

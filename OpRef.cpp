@@ -63,6 +63,7 @@ void pool2d_forward_ref(PoolType pool_type,
     // the right thing.
     int output_width = (1 + (input_width + 2 * pad_w - pool_width)/stride_w);
     int output_height = (1 + (input_height + 2 * pad_h - pool_height)/stride_h);
+
     for(int b = 0; b < batch_size; b++) {
         for(int ch = 0; ch < input_channels; ch++) {
             for(int h = 0; h < output_height; h++) {
@@ -84,10 +85,10 @@ void pool2d_forward_ref(PoolType pool_type,
                             }
                         }
                         output(b, ch, h, w) = sum/num;
-                    } else if (pool_type == PoolType:MAX) {
+                    } else if (pool_type == PoolType::MAX) {
                         // TODO: CUDNN has other modes where the boundary values
                         // are not taken into account when doing the max.
-                        float max = input(batch, ch, h * stride_h, w * stride_w);
+                        float max = input(b, ch, h * stride_h, w * stride_w);
                         for(int k_h = 0; k_h < pool_height; k_h++) {
                             for(int k_w = 0; k_w < pool_width; k_w++) {
                                 int in_w = w * stride_w + k_w - pad_w;
