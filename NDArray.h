@@ -13,13 +13,13 @@ class NDArray {
     public:
     std::shared_ptr<T> host_alloc;
 
-    std::vector<int> strides;
+    std::vector<int> dim_sizes;
     size_t buf_size;
 
-    NDArray(std::vector<int> _strides) : strides(_strides) {
-        if (strides.size() >= 1) {
+    NDArray(std::vector<int> _dim_sizes) : dim_sizes(_dim_sizes) {
+        if (dim_sizes.size() >= 1) {
             buf_size = 1;
-            for (auto& s: strides) {
+            for (auto& s: dim_sizes) {
                 buf_size *= s;
             }
             T* host_ptr = new T[buf_size];
@@ -27,6 +27,13 @@ class NDArray {
         } else {
             buf_size = 0;
         }
+    }
+
+    int dimensions() { return dim_sizes.size(); }
+
+    int extent(int dim_id) {
+        assert(dim_id < dim_sizes.size());
+        return dim_sizes[dim_id];
     }
 
     void initialize(T val) {
@@ -45,50 +52,50 @@ class NDArray {
     }
 
     inline T& operator()(int d1) {
-        assert(strides.size() == 1);
+        assert(dim_sizes.size() == 1);
         return host_alloc.get()[d1];
     }
 
     inline T& operator()(int d1, int d2) {
-        assert(strides.size() == 2);
-        int offset = d1 * strides[1] + d2;
+        assert(dim_sizes.size() == 2);
+        int offset = d1 * dim_sizes[1] + d2;
         return host_alloc.get()[offset];
     }
 
     inline T& operator()(int d1, int d2, int d3) {
-        assert(strides.size() == 3);
-        int offset = d1 * strides[1] * strides[2] + d2 * strides[2] + d3;
+        assert(dim_sizes.size() == 3);
+        int offset = d1 * dim_sizes[1] * dim_sizes[2] + d2 * dim_sizes[2] + d3;
         return host_alloc.get()[offset];
     }
 
     inline T& operator()(int d1, int d2, int d3, int d4) {
-        assert(strides.size() == 4);
-        int offset = d1 * strides[1] * strides[2] * strides[3] +
-                     d2 * strides[2] * strides[3] + d3 * strides[3] + d4;
+        assert(dim_sizes.size() == 4);
+        int offset = d1 * dim_sizes[1] * dim_sizes[2] * dim_sizes[3] +
+                     d2 * dim_sizes[2] * dim_sizes[3] + d3 * dim_sizes[3] + d4;
         return host_alloc.get()[offset];
     }
 
     inline const T& operator()(int d1) const {
-        assert(strides.size() == 1);
+        assert(dim_sizes.size() == 1);
         return host_alloc.get()[d1];
     }
 
     inline const T& operator()(int d1, int d2) const {
-        assert(strides.size() == 2);
-        int offset = d1 * strides[1] + d2;
+        assert(dim_sizes.size() == 2);
+        int offset = d1 * dim_sizes[1] + d2;
         return host_alloc.get()[offset];
     }
 
     inline const T& operator()(int d1, int d2, int d3) const {
-        assert(strides.size() == 3);
-        int offset = d1 * strides[1] * strides[2] + d2 * strides[2] + d3;
+        assert(dim_sizes.size() == 3);
+        int offset = d1 * dim_sizes[1] * dim_sizes[2] + d2 * dim_sizes[2] + d3;
         return host_alloc.get()[offset];
     }
 
     inline const T& operator()(int d1, int d2, int d3, int d4) const {
-        assert(strides.size() == 4);
-        int offset = d1 * strides[1] * strides[2] * strides[3] +
-                     d2 * strides[2] * strides[3] + d3 * strides[3] + d4;
+        assert(dim_sizes.size() == 4);
+        int offset = d1 * dim_sizes[1] * dim_sizes[2] * dim_sizes[3] +
+                     d2 * dim_sizes[2] * dim_sizes[3] + d3 * dim_sizes[3] + d4;
         return host_alloc.get()[offset];
     }
 };
