@@ -11,6 +11,23 @@ void Graph::initialize_params(Params &params) {
     }
 }
 
+int Graph::add_pipeline() {
+    pipelines.push_back(std::map<std::string, Op>());
+    return pipelines.size() - 1;
+}
+
+int Graph::num_pipelines() {
+    return pipelines.size();
+}
+
+void Graph::add_op(std::string name, const Op& op, int pipeline_id) {
+    assert(ops.find(name) == ops.end());
+    assert(pipeline_id < (int) pipelines.size());
+    ops[name] = op;
+    assert(pipelines[pipeline_id].find(name) == pipelines[pipeline_id].end());
+    pipelines[pipeline_id][name] = op;
+}
+
 void Graph::display_ops() {
     for (auto &op: ops) {
         std::cout << op.first << std::endl;

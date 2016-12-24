@@ -14,7 +14,7 @@ enum TargetArch { CPU, GPU };
 class Graph {
     public:
     std::map<std::string, Op> ops;
-    std::vector<std::map<std::string, Op>> subgraphs;
+    std::vector<std::map<std::string, Op>> pipelines;
 
     Graph() {}
 
@@ -27,8 +27,12 @@ class Graph {
     // stored by op name and the order in the op's param list.
     void extract_params(Params& params);
 
-    void build_forward_graph(const std::map<std::string, Op>& sub_graph,
-                             OpImpl impl, TargetArch arch);
+    int add_pipeline();
+    int num_pipelines();
+
+    void add_op(std::string name, const Op& op, int pipeline_id);
+
+    void build_forward_graph(int pipeline_id, OpImpl impl, TargetArch arch);
 
     void display_ops();
 };
