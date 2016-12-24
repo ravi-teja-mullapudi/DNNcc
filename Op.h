@@ -1,15 +1,10 @@
 #include <vector>
-#include <string>
 #include <cmath>
 #include "NDArray.h"
 
 /* A node in the dataflow graph which performs an operation */
 class Op {
     public:
-    // Op name. Must be unique in a dataflow graph. Used to lookup
-    // and initialize parameters.
-    std::string name;
-
     // Ordered list of op which create inputs for the current op.
     std::vector<Op> inputs;
 
@@ -19,11 +14,13 @@ class Op {
     // Ordered list of parameter gradients of the op.
     std::vector<NDArray<float>> param_grads;
 
-    Op(std::string _name, Op& _input) : name(_name) {
+    Op() {}
+
+    Op(const Op& _input) {
         inputs.push_back(_input);
     }
 
-    Op(std::string _name, std::vector<Op>& _inputs) : name(_name) {
+    Op(const std::vector<Op>& _inputs) {
         for (size_t i = 0; i < _inputs.size(); i++) {
             inputs.push_back(_inputs[i]);
         }
@@ -53,8 +50,9 @@ class AffineOp: public Op {
     int num_inputs;
     int num_units;
 
-    AffineOp(std::string _name, int _num_units, Op& _input)
-             : Op(_name, _input), num_units(_num_units) {
+    AffineOp(int _num_units, Op& _input)
+             : Op(_input), num_units(_num_units)
+    {
         assert(_input.num_outputs() == 1);
         assert(_input.num_dims(0) == 2);
         batch_size = _input.out_size(0, 0);
@@ -101,14 +99,13 @@ class Conv2dOp: public Op {
     int pad_h;
     int pad_w;
 
-    Conv2dOp(std::string _name,
-             int _output_channels,
+    Conv2dOp(int _output_channels,
              int _filter_height,
              int _filter_width,
              int _stride_h,
              int _stride_w,
              Op& _input)
-        : Op(_name, _input),
+        : Op(_input),
           output_channels(_output_channels),
           filter_height(_filter_height),
           filter_width(_filter_width),
@@ -179,14 +176,13 @@ class Pool2dOp: public Op {
     int pad_h;
     int pad_w;
 
-    Pool2dOp(std::string _name,
-             int _pool_height,
+    Pool2dOp(int _pool_height,
              int _pool_width,
              int _stride_h,
              int _stride_w,
              PoolType _pool_type,
              Op& _input)
-        : Op(_name, _input),
+        : Op(_input),
           pool_height(_pool_height),
           pool_width(_pool_width),
           stride_h(_stride_h),
@@ -236,8 +232,8 @@ class Pool2dOp: public Op {
 class ReLUOp: public Op {
     public:
     float slope;
-    ReLUOp(std::string _name, float _slope, Op& _input)
-        : Op(_name, _input),
+    ReLUOp(float _slope, Op& _input)
+        : Op(_input),
           slope(_slope) {}
 
     int num_outputs() { return 1; }
@@ -258,8 +254,8 @@ class SoftMaxOp: public Op {
     int batch_size;
     int num_classes;
 
-    SoftMaxOp(std::string _name, Op& _input)
-        : Op(_name, _input) {
+    SoftMaxOp(Op& _input)
+        : Op(_input) {
         assert(_input.num_outputs() == 1);
         assert(_input.num_dims(0) == 2);
         batch_size = _input.out_size(0, 0);
@@ -295,8 +291,8 @@ class LRNOp: public Op {
     int alpha;
     int beta;
 
-    LRNOp(std::string _name, int _window_size, float _alpha, float _beta, Op& _input)
-        : Op(_name, _input),
+    LRNOp(int _window_size, float _alpha, float _beta, Op& _input)
+        : Op(_input),
           window_size(_window_size),
           alpha(_alpha),
           beta(_beta)
@@ -339,8 +335,8 @@ class ConcatOp: public Op {
     int input_height;
     int input_width;
 
-    ConcatOp(std::string _name, std::vector<Op>& _inputs)
-        : Op(_name, _inputs)
+    ConcatOp(std::vector<Op>& _inputs)
+        : Op(_inputs)
     {
         assert(inputs.size() > 0);
         assert(inputs[0].num_outputs() == 1 && inputs[0].num_dims(0) == 4);
@@ -372,6 +368,86 @@ class ConcatOp: public Op {
             size = batch_size;
         } else if (dim_id == 1) {
             size = output_channels;
+        } else if (dim_id == 2) {
+            size = input_height;
+        } else if (dim_id == 3) {
+            size = input_width;
+        }
+        return size;
+    }
+};
+
+class FlattenOp: public Op {
+    public:
+    int batch_size;
+    int output_width;
+
+    FlattenOp(Op& _input) : Op(_input) {
+        assert(inputs[0].num_outputs() == 1);
+        assert(inputs[0].num_dims(0) >= 2 && inputs[0].num_dims(0) <= 4);
+        batch_size = inputs[0].out_size(0, 0);
+        if (inputs[0].num_dims(0) == 2) {
+            output_width = inputs[0].out_size(0, 1);
+        } else if (inputs[0].num_dims(0) == 3) {
+            output_width = inputs[0].out_size(0, 1) *
+                           inputs[0].out_size(0, 2);
+        } else if (inputs[0].num_dims(0) == 4) {
+            output_width = inputs[0].out_size(0, 1) *
+                           inputs[0].out_size(0, 2) *
+                           inputs[0].out_size(0, 3);
+        }
+    }
+
+    int num_outputs() { return 1; }
+
+    int num_dims(int out_id) {
+        assert(out_id < 1);
+        return 2;
+    }
+
+    int out_size(int out_id, int dim_id) {
+        assert(out_id < 1 && dim_id < 4);
+        int size = 0;
+        if (dim_id == 0) {
+            size = batch_size;
+        } else if (dim_id == 1) {
+            size = output_width;
+        }
+        return size;
+    }
+};
+
+class DataOp: public Op {
+    public:
+    int batch_size;
+    int input_channels;
+    int input_height;
+    int input_width;
+
+    DataOp(int _batch_size,
+           int _input_channels,
+           int _input_height,
+           int _input_width) :
+        Op(),
+        batch_size(_batch_size),
+        input_channels(_input_channels),
+        input_height(_input_height),
+        input_width(_input_width) {}
+
+    int num_outputs() { return 1; }
+
+    int num_dims(int out_id) {
+        assert(out_id < 1);
+        return 4;
+    }
+
+    int out_size(int out_id, int dim_id) {
+        assert(out_id < 1 && dim_id < 4);
+        int size = 0;
+        if (dim_id == 0) {
+            size = batch_size;
+        } else if (dim_id == 1) {
+            size = input_channels;
         } else if (dim_id == 2) {
             size = input_height;
         } else if (dim_id == 3) {
