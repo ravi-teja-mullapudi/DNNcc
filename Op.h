@@ -1,4 +1,8 @@
 #include <vector>
+#include <string>
+#include <cmath>
+#include "NDArray.h"
+
 /* A node in the dataflow graph which performs an operation */
 class Op {
     public:
@@ -6,7 +10,6 @@ class Op {
     // and initialize parameters.
     std::string name;
 
-    i
     // Ordered list of op which create inputs for the current op.
     std::vector<Op> inputs;
 
@@ -26,11 +29,22 @@ class Op {
         }
     }
 
-    virtual ~Op() {};
+    virtual ~Op() {}
 
-    virtual int num_outputs() = 0;
-    virtual int num_dims(int out_id) = 0;
-    virtual int out_size(int out_id, int dim_id) = 0;
+    virtual int num_outputs() {
+        assert(false);
+        return 0;
+    }
+
+    virtual int num_dims(int out_id) {
+        assert(false);
+        return 0;
+    }
+
+    virtual int out_size(int out_id, int dim_id) {
+        assert(false);
+        return 0;
+    }
 };
 
 class AffineOp: public Op {
@@ -39,12 +53,12 @@ class AffineOp: public Op {
     int num_inputs;
     int num_units;
 
-    Op(std::string _name, int _num_units, Op& _input)
-        : Op(_name, _input), num_units(_num_units) {
+    AffineOp(std::string _name, int _num_units, Op& _input)
+             : Op(_name, _input), num_units(_num_units) {
         assert(_input.num_outputs() == 1);
         assert(_input.num_dims(0) == 2);
-        batch_size = _input.out_dim_size(0, 0);
-        num_inputs = _input.out_dim_size(0, 1);
+        batch_size = _input.out_size(0, 0);
+        num_inputs = _input.out_size(0, 1);
 
         params.push_back(NDArray<float>({num_units, num_inputs}));
         params.push_back(NDArray<float>({num_units}));
@@ -96,18 +110,18 @@ class Conv2dOp: public Op {
              Op& _input)
         : Op(_name, _input),
           output_channels(_output_channels),
-          filter_width(_filter_width),
           filter_height(_filter_height),
+          filter_width(_filter_width),
           stride_h(_stride_h),
           stride_w(_stride_w)
     {
         assert(_input.num_outputs() == 1);
         assert(_input.num_dims(0) == 4);
 
-        batch_size = _input.out_dim_size(0, 0);
-        input_channels = _input.out_dim_size(0, 1);
-        input_height = _input.out_dim_size(0, 2);
-        input_width = _input.out_dim_size(0, 3);
+        batch_size = _input.out_size(0, 0);
+        input_channels = _input.out_size(0, 1);
+        input_height = _input.out_size(0, 2);
+        input_width = _input.out_size(0, 3);
 
         pad_h = (filter_height - 1)/2;
         pad_w = (filter_width - 1)/2;
@@ -182,17 +196,17 @@ class Pool2dOp: public Op {
         assert(_input.num_outputs() == 1);
         assert(_input.num_dims(0) == 4);
 
-        batch_size = _input.out_dim_size(0, 0);
-        input_channels = _input.out_dim_size(0, 1);
-        input_height = _input.out_dim_size(0, 2);
-        input_width = _input.out_dim_size(0, 3);
+        batch_size = _input.out_size(0, 0);
+        input_channels = _input.out_size(0, 1);
+        input_height = _input.out_size(0, 2);
+        input_width = _input.out_size(0, 3);
 
-        pad_h = (filter_height - 1)/2;
-        pad_w = (filter_width - 1)/2;
+        pad_h = (pool_height - 1)/2;
+        pad_w = (pool_width - 1)/2;
 
-        out_height = 1 +
+        output_height = 1 +
             std::ceil((float)(input_height + 2 * pad_h - pool_height)/stride_h);
-        out_width = 1 +
+        output_width = 1 +
             std::ceil((float)(input_width + 2 * pad_w - pool_width)/stride_w);
     }
 
@@ -209,11 +223,11 @@ class Pool2dOp: public Op {
         if (dim_id == 0) {
             size = batch_size;
         } else if (dim_id == 1) {
-            size = output_channels;
+            size = input_channels;
         } else if (dim_id == 2) {
-            size = out_height;
+            size = output_height;
         } else if (dim_id == 3) {
-            size = out_width;
+            size = output_width;
         }
         return size;
     }
@@ -248,8 +262,8 @@ class SoftMaxOp: public Op {
         : Op(_name, _input) {
         assert(_input.num_outputs() == 1);
         assert(_input.num_dims(0) == 2);
-        batch_size = _input.out_dim_size(0, 0);
-        num_classes = _input.out_dim_size(0, 1);
+        batch_size = _input.out_size(0, 0);
+        num_classes = _input.out_size(0, 1);
     }
 
     int num_outputs() { return 1; }
@@ -289,10 +303,10 @@ class LRNOp: public Op {
     {
         assert(_input.num_outputs() == 1);
         assert(_input.num_dims(0) == 2);
-        batch_size = _input.out_dim_size(0, 0);
-        input_channels = _input.out_dim_size(0, 1);
-        input_height = _input.out_dim_size(0, 2);
-        input_width = _input.out_dim_size(0, 3)
+        batch_size = _input.out_size(0, 0);
+        input_channels = _input.out_size(0, 1);
+        input_height = _input.out_size(0, 2);
+        input_width = _input.out_size(0, 3);
     }
 
     int num_outputs() { return 1; }

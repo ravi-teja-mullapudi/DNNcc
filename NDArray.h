@@ -32,7 +32,7 @@ class NDArray {
     int dimensions() { return dim_sizes.size(); }
 
     int extent(int dim_id) {
-        assert(dim_id < dim_sizes.size());
+        assert(dim_id < (int)dim_sizes.size());
         return dim_sizes[dim_id];
     }
 
