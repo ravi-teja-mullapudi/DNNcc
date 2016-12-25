@@ -1,4 +1,7 @@
+#pragma once
+
 #include <vector>
+#include <memory>
 #include <iostream>
 #include "ModelIO.h"
 #include "Op.h"
@@ -13,8 +16,8 @@ enum TargetArch { CPU, GPU };
 
 class Graph {
     public:
-    std::map<std::string, Op> ops;
-    std::vector<std::map<std::string, Op>> pipelines;
+    std::map<std::string, std::shared_ptr<Op>> ops;
+    std::vector<std::map<std::string, std::shared_ptr<Op>>> pipelines;
 
     Graph() {}
 
@@ -30,7 +33,7 @@ class Graph {
     int add_pipeline();
     int num_pipelines();
 
-    void add_op(std::string name, const Op& op, int pipeline_id);
+    void add_op(std::string name, std::shared_ptr<Op> op, int pipeline_id);
 
     void build_forward_graph(int pipeline_id, OpImpl impl, TargetArch arch);
 

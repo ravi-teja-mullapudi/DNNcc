@@ -1,12 +1,13 @@
 #include <vector>
 #include <cmath>
+#include <memory>
 #include "NDArray.h"
 
 /* A node in the dataflow graph which performs an operation */
 class Op {
     public:
     // Ordered list of op which create inputs for the current op.
-    std::vector<Op> inputs;
+    std::vector<std::shared_ptr<Op>> inputs;
 
     // Ordered list of learnable parameters of the op.
     std::vector<NDArray<float>> params;
@@ -16,11 +17,7 @@ class Op {
 
     Op() {}
 
-    Op(const Op& _input) {
-        inputs.push_back(_input);
-    }
-
-    Op(const std::vector<Op>& _inputs) {
+    Op(const std::vector<std::shared_ptr<Op>>& _inputs) {
         for (size_t i = 0; i < _inputs.size(); i++) {
             inputs.push_back(_inputs[i]);
         }
@@ -28,20 +25,9 @@ class Op {
 
     virtual ~Op() {}
 
-    virtual int num_outputs() {
-        assert(false);
-        return 0;
-    }
-
-    virtual int num_dims(int out_id) {
-        assert(false);
-        return 0;
-    }
-
-    virtual int out_size(int out_id, int dim_id) {
-        assert(false);
-        return 0;
-    }
+    virtual int num_outputs() = 0;
+    virtual int num_dims(int out_id) = 0;
+    virtual int out_size(int out_id, int dim_id) = 0;
 };
 
 class AffineOp: public Op {
@@ -50,13 +36,13 @@ class AffineOp: public Op {
     int num_inputs;
     int num_units;
 
-    AffineOp(int _num_units, Op& _input)
-             : Op(_input), num_units(_num_units)
+    AffineOp(int _num_units, std::shared_ptr<Op> _input)
+             : Op({_input}), num_units(_num_units)
     {
-        assert(_input.num_outputs() == 1);
-        assert(_input.num_dims(0) == 2);
-        batch_size = _input.out_size(0, 0);
-        num_inputs = _input.out_size(0, 1);
+        assert(_input->num_outputs() == 1);
+        assert(_input->num_dims(0) == 2);
+        batch_size = _input->out_size(0, 0);
+        num_inputs = _input->out_size(0, 1);
 
         params.push_back(NDArray<float>({num_units, num_inputs}));
         params.push_back(NDArray<float>({num_units}));
@@ -104,21 +90,21 @@ class Conv2dOp: public Op {
              int _filter_width,
              int _stride_h,
              int _stride_w,
-             Op& _input)
-        : Op(_input),
+             std::shared_ptr<Op> _input)
+        : Op({_input}),
           output_channels(_output_channels),
           filter_height(_filter_height),
           filter_width(_filter_width),
           stride_h(_stride_h),
           stride_w(_stride_w)
     {
-        assert(_input.num_outputs() == 1);
-        assert(_input.num_dims(0) == 4);
+        assert(_input->num_outputs() == 1);
+        assert(_input->num_dims(0) == 4);
 
-        batch_size = _input.out_size(0, 0);
-        input_channels = _input.out_size(0, 1);
-        input_height = _input.out_size(0, 2);
-        input_width = _input.out_size(0, 3);
+        batch_size = _input->out_size(0, 0);
+        input_channels = _input->out_size(0, 1);
+        input_height = _input->out_size(0, 2);
+        input_width = _input->out_size(0, 3);
 
         pad_h = (filter_height - 1)/2;
         pad_w = (filter_width - 1)/2;
@@ -181,21 +167,21 @@ class Pool2dOp: public Op {
              int _stride_h,
              int _stride_w,
              PoolType _pool_type,
-             Op& _input)
-        : Op(_input),
+             std::shared_ptr<Op> _input)
+        : Op({_input}),
           pool_height(_pool_height),
           pool_width(_pool_width),
           stride_h(_stride_h),
           stride_w(_stride_w),
           pool_type(_pool_type)
     {
-        assert(_input.num_outputs() == 1);
-        assert(_input.num_dims(0) == 4);
+        assert(_input->num_outputs() == 1);
+        assert(_input->num_dims(0) == 4);
 
-        batch_size = _input.out_size(0, 0);
-        input_channels = _input.out_size(0, 1);
-        input_height = _input.out_size(0, 2);
-        input_width = _input.out_size(0, 3);
+        batch_size = _input->out_size(0, 0);
+        input_channels = _input->out_size(0, 1);
+        input_height = _input->out_size(0, 2);
+        input_width = _input->out_size(0, 3);
 
         pad_h = (pool_height - 1)/2;
         pad_w = (pool_width - 1)/2;
@@ -232,20 +218,20 @@ class Pool2dOp: public Op {
 class ReLUOp: public Op {
     public:
     float slope;
-    ReLUOp(float _slope, Op& _input)
-        : Op(_input),
+    ReLUOp(float _slope, std::shared_ptr<Op> _input)
+        : Op({_input}),
           slope(_slope) {}
 
     int num_outputs() { return 1; }
 
     int num_dims(int out_id) {
         assert(out_id < 1);
-        return inputs[0].num_dims(out_id);
+        return inputs[0]->num_dims(out_id);
     }
 
     int out_size(int out_id, int dim_id) {
-        assert(out_id < 1 && dim_id < inputs[0].num_dims(out_id));
-        return inputs[0].out_size(out_id, dim_id);
+        assert(out_id < 1 && dim_id < inputs[0]->num_dims(out_id));
+        return inputs[0]->out_size(out_id, dim_id);
     }
 };
 
@@ -254,12 +240,12 @@ class SoftMaxOp: public Op {
     int batch_size;
     int num_classes;
 
-    SoftMaxOp(Op& _input)
-        : Op(_input) {
-        assert(_input.num_outputs() == 1);
-        assert(_input.num_dims(0) == 2);
-        batch_size = _input.out_size(0, 0);
-        num_classes = _input.out_size(0, 1);
+    SoftMaxOp(std::shared_ptr<Op> _input)
+        : Op({_input}) {
+        assert(_input->num_outputs() == 1);
+        assert(_input->num_dims(0) == 2);
+        batch_size = _input->out_size(0, 0);
+        num_classes = _input->out_size(0, 1);
     }
 
     int num_outputs() { return 1; }
@@ -291,18 +277,19 @@ class LRNOp: public Op {
     int alpha;
     int beta;
 
-    LRNOp(int _window_size, float _alpha, float _beta, Op& _input)
-        : Op(_input),
+    LRNOp(int _window_size, float _alpha, float _beta,
+          std::shared_ptr<Op> _input)
+        : Op({_input}),
           window_size(_window_size),
           alpha(_alpha),
           beta(_beta)
     {
-        assert(_input.num_outputs() == 1);
-        assert(_input.num_dims(0) == 2);
-        batch_size = _input.out_size(0, 0);
-        input_channels = _input.out_size(0, 1);
-        input_height = _input.out_size(0, 2);
-        input_width = _input.out_size(0, 3);
+        assert(_input->num_outputs() == 1);
+        assert(_input->num_dims(0) == 2);
+        batch_size = _input->out_size(0, 0);
+        input_channels = _input->out_size(0, 1);
+        input_height = _input->out_size(0, 2);
+        input_width = _input->out_size(0, 3);
     }
 
     int num_outputs() { return 1; }
@@ -335,22 +322,22 @@ class ConcatOp: public Op {
     int input_height;
     int input_width;
 
-    ConcatOp(std::vector<Op>& _inputs)
+    ConcatOp(std::vector<std::shared_ptr<Op>>& _inputs)
         : Op(_inputs)
     {
         assert(inputs.size() > 0);
-        assert(inputs[0].num_outputs() == 1 && inputs[0].num_dims(0) == 4);
-        batch_size = inputs[0].out_size(0, 0);
-        input_height = inputs[0].out_size(0, 2);
-        input_width = inputs[0].out_size(0, 3);
+        assert(inputs[0]->num_outputs() == 1 && inputs[0]->num_dims(0) == 4);
+        batch_size = inputs[0]->out_size(0, 0);
+        input_height = inputs[0]->out_size(0, 2);
+        input_width = inputs[0]->out_size(0, 3);
 
         output_channels = 0;
         for (size_t l = 0; l < inputs.size(); l++) {
-            assert(inputs[l].num_outputs() == 1);
-            assert(inputs[l].out_size(0, 0) == batch_size &&
-                   inputs[l].out_size(0, 2) == input_height &&
-                   inputs[l].out_size(0, 3) == input_width);
-            output_channels += inputs[l].out_size(0, 1);
+            assert(inputs[l]->num_outputs() == 1);
+            assert(inputs[l]->out_size(0, 0) == batch_size &&
+                   inputs[l]->out_size(0, 2) == input_height &&
+                   inputs[l]->out_size(0, 3) == input_width);
+            output_channels += inputs[l]->out_size(0, 1);
         }
     }
 
@@ -382,19 +369,19 @@ class FlattenOp: public Op {
     int batch_size;
     int output_width;
 
-    FlattenOp(Op& _input) : Op(_input) {
-        assert(inputs[0].num_outputs() == 1);
-        assert(inputs[0].num_dims(0) >= 2 && inputs[0].num_dims(0) <= 4);
-        batch_size = inputs[0].out_size(0, 0);
-        if (inputs[0].num_dims(0) == 2) {
-            output_width = inputs[0].out_size(0, 1);
-        } else if (inputs[0].num_dims(0) == 3) {
-            output_width = inputs[0].out_size(0, 1) *
-                           inputs[0].out_size(0, 2);
-        } else if (inputs[0].num_dims(0) == 4) {
-            output_width = inputs[0].out_size(0, 1) *
-                           inputs[0].out_size(0, 2) *
-                           inputs[0].out_size(0, 3);
+    FlattenOp(std::shared_ptr<Op> _input) : Op({_input}) {
+        assert(inputs[0]->num_outputs() == 1);
+        assert(inputs[0]->num_dims(0) >= 2 && inputs[0]->num_dims(0) <= 4);
+        batch_size = inputs[0]->out_size(0, 0);
+        if (inputs[0]->num_dims(0) == 2) {
+            output_width = inputs[0]->out_size(0, 1);
+        } else if (inputs[0]->num_dims(0) == 3) {
+            output_width = inputs[0]->out_size(0, 1) *
+                           inputs[0]->out_size(0, 2);
+        } else if (inputs[0]->num_dims(0) == 4) {
+            output_width = inputs[0]->out_size(0, 1) *
+                           inputs[0]->out_size(0, 2) *
+                           inputs[0]->out_size(0, 3);
         }
     }
 
