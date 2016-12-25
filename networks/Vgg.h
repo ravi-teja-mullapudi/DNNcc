@@ -16,7 +16,7 @@ add_conv_relu(Graph& g, int num_filters, int filter_height,
     return relu;
 }
 
-void Vgg(Graph& g) {
+void Vgg16(Graph& g) {
 
     // Network structure
     // input -> conv1_1 -> relu1_1 -> conv1_2 -> relu1_2 -> pool1 ->
