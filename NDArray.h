@@ -16,6 +16,10 @@ class NDArray {
     std::vector<int> dim_sizes;
     size_t buf_size;
 
+    NDArray() {
+        buf_size = 0;
+    }
+
     NDArray(std::vector<int> _dim_sizes) : dim_sizes(_dim_sizes) {
         if (dim_sizes.size() >= 1) {
             buf_size = 1;

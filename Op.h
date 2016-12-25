@@ -7,7 +7,7 @@
 class Op {
     public:
     // Ordered list of op which create inputs for the current op.
-    std::vector<std::shared_ptr<Op>> inputs;
+    std::vector<std::shared_ptr<Op>> input_ops;
 
     // Ordered list of learnable parameters of the op.
     std::vector<NDArray<float>> params;
@@ -15,11 +15,15 @@ class Op {
     // Ordered list of parameter gradients of the op.
     std::vector<NDArray<float>> param_grads;
 
+    // Storage for op inputs and output.
+    std::vector<NDArray<float>> inputs;
+    NDArray<float> output;
+
     Op() {}
 
-    Op(const std::vector<std::shared_ptr<Op>>& _inputs) {
-        for (size_t i = 0; i < _inputs.size(); i++) {
-            inputs.push_back(_inputs[i]);
+    Op(const std::vector<std::shared_ptr<Op>>& _input_ops) {
+        for (size_t i = 0; i < _input_ops.size(); i++) {
+            input_ops.push_back(_input_ops[i]);
         }
     }
 
@@ -35,19 +39,6 @@ class AffineOp: public Op {
     int num_inputs;
     int num_units;
 
-    AffineOp(int _num_units, std::shared_ptr<Op> _input)
-             : Op({_input}), num_units(_num_units)
-    {
-        assert(_input->num_dims() == 2);
-        batch_size = _input->out_size(0);
-        num_inputs = _input->out_size(1);
-
-        params.push_back(NDArray<float>({num_units, num_inputs}));
-        params.push_back(NDArray<float>({num_units}));
-
-        // TODO: Create buffers for gradients
-    }
-
     int num_dims() { return 2; }
 
     int out_size(int dim_id) {
@@ -60,6 +51,8 @@ class AffineOp: public Op {
         }
         return size;
     }
+
+    AffineOp(int _num_units, std::shared_ptr<Op> _input_op);
 };
 
 class Conv2dOp: public Op {
@@ -78,41 +71,6 @@ class Conv2dOp: public Op {
     int pad_h;
     int pad_w;
 
-    Conv2dOp(int _output_channels,
-             int _filter_height,
-             int _filter_width,
-             int _stride_h,
-             int _stride_w,
-             std::shared_ptr<Op> _input)
-        : Op({_input}),
-          output_channels(_output_channels),
-          filter_height(_filter_height),
-          filter_width(_filter_width),
-          stride_h(_stride_h),
-          stride_w(_stride_w)
-    {
-        assert(_input->num_dims() == 4);
-
-        batch_size = _input->out_size(0);
-        input_channels = _input->out_size(1);
-        input_height = _input->out_size(2);
-        input_width = _input->out_size(3);
-
-        pad_h = (filter_height - 1)/2;
-        pad_w = (filter_width - 1)/2;
-
-        output_height = (1 + (input_height + 2 * pad_h - filter_height)/stride_h);
-        output_width = (1 + (input_width + 2 * pad_w - filter_width)/stride_w);
-
-        params.push_back(NDArray<float>({output_channels,
-                                         input_channels,
-                                         filter_height,
-                                         filter_width}));
-        params.push_back(NDArray<float>({output_channels}));
-
-        // TODO: Create buffers for gradients
-    }
-
     int num_dims() { return 4; }
 
     int out_size(int dim_id) {
@@ -129,6 +87,13 @@ class Conv2dOp: public Op {
         }
         return size;
     }
+
+    Conv2dOp(int _output_channels,
+             int _filter_height,
+             int _filter_width,
+             int _stride_h,
+             int _stride_w,
+             std::shared_ptr<Op> _input_op);
 };
 
 enum PoolType {AVG, MAX};
@@ -149,35 +114,6 @@ class Pool2dOp: public Op {
     int pad_h;
     int pad_w;
 
-    Pool2dOp(int _pool_height,
-             int _pool_width,
-             int _stride_h,
-             int _stride_w,
-             PoolType _pool_type,
-             std::shared_ptr<Op> _input)
-        : Op({_input}),
-          pool_height(_pool_height),
-          pool_width(_pool_width),
-          stride_h(_stride_h),
-          stride_w(_stride_w),
-          pool_type(_pool_type)
-    {
-        assert(_input->num_dims() == 4);
-
-        batch_size = _input->out_size(0);
-        input_channels = _input->out_size(1);
-        input_height = _input->out_size(2);
-        input_width = _input->out_size(3);
-
-        pad_h = (pool_height - 1)/2;
-        pad_w = (pool_width - 1)/2;
-
-        output_height = 1 +
-            std::ceil((float)(input_height + 2 * pad_h - pool_height)/stride_h);
-        output_width = 1 +
-            std::ceil((float)(input_width + 2 * pad_w - pool_width)/stride_w);
-    }
-
     int num_dims() { return 4; }
 
     int out_size(int dim_id) {
@@ -194,37 +130,35 @@ class Pool2dOp: public Op {
         }
         return size;
     }
+
+    Pool2dOp(int _pool_height,
+             int _pool_width,
+             int _stride_h,
+             int _stride_w,
+             PoolType _pool_type,
+             std::shared_ptr<Op> _input_op);
 };
 
 class ReLUOp: public Op {
     public:
     float slope;
-    ReLUOp(float _slope, std::shared_ptr<Op> _input)
-        : Op({_input}),
-          slope(_slope) {}
-
 
     int num_dims() {
-        return inputs[0]->num_dims();
+        return input_ops[0]->num_dims();
     }
 
     int out_size(int dim_id) {
-        assert(dim_id < inputs[0]->num_dims());
-        return inputs[0]->out_size(dim_id);
+        assert(dim_id < input_ops[0]->num_dims());
+        return input_ops[0]->out_size(dim_id);
     }
+
+    ReLUOp(float _slope, std::shared_ptr<Op> _input_op);
 };
 
 class SoftMaxOp: public Op {
     public:
     int batch_size;
     int num_classes;
-
-    SoftMaxOp(std::shared_ptr<Op> _input)
-        : Op({_input}) {
-        assert(_input->num_dims() == 2);
-        batch_size = _input->out_size(0);
-        num_classes = _input->out_size(1);
-    }
 
     int num_dims() { return 2; }
 
@@ -238,6 +172,8 @@ class SoftMaxOp: public Op {
         }
         return size;
     }
+
+    SoftMaxOp(std::shared_ptr<Op> _input_op);
 };
 
 class LRNOp: public Op {
@@ -249,20 +185,6 @@ class LRNOp: public Op {
     int window_size;
     int alpha;
     int beta;
-
-    LRNOp(int _window_size, float _alpha, float _beta,
-          std::shared_ptr<Op> _input)
-        : Op({_input}),
-          window_size(_window_size),
-          alpha(_alpha),
-          beta(_beta)
-    {
-        assert(_input->num_dims() == 2);
-        batch_size = _input->out_size(0);
-        input_channels = _input->out_size(1);
-        input_height = _input->out_size(2);
-        input_width = _input->out_size(3);
-    }
 
     int num_dims() { return 4; }
 
@@ -280,6 +202,9 @@ class LRNOp: public Op {
         }
         return size;
     }
+
+    LRNOp(int _window_size, float _alpha, float _beta,
+          std::shared_ptr<Op> _input_op);
 };
 
 class ConcatOp: public Op {
@@ -288,24 +213,6 @@ class ConcatOp: public Op {
     int output_channels;
     int input_height;
     int input_width;
-
-    ConcatOp(std::vector<std::shared_ptr<Op>>& _inputs)
-        : Op(_inputs)
-    {
-        assert(inputs.size() > 0);
-        assert(inputs[0]->num_dims() == 4);
-        batch_size = inputs[0]->out_size(0);
-        input_height = inputs[0]->out_size(2);
-        input_width = inputs[0]->out_size(3);
-
-        output_channels = 0;
-        for (size_t l = 0; l < inputs.size(); l++) {
-            assert(inputs[l]->out_size(0) == batch_size &&
-                   inputs[l]->out_size(2) == input_height &&
-                   inputs[l]->out_size(3) == input_width);
-            output_channels += inputs[l]->out_size(1);
-        }
-    }
 
     int num_dims() { return 4; }
 
@@ -323,27 +230,14 @@ class ConcatOp: public Op {
         }
         return size;
     }
+
+    ConcatOp(std::vector<std::shared_ptr<Op>>& _input_ops);
 };
 
 class FlattenOp: public Op {
     public:
     int batch_size;
     int output_width;
-
-    FlattenOp(std::shared_ptr<Op> _input) : Op({_input}) {
-        assert(inputs[0]->num_dims() >= 2 && inputs[0]->num_dims() <= 4);
-        batch_size = inputs[0]->out_size(0);
-        if (inputs[0]->num_dims() == 2) {
-            output_width = inputs[0]->out_size(1);
-        } else if (inputs[0]->num_dims() == 3) {
-            output_width = inputs[0]->out_size(1) *
-                           inputs[0]->out_size(2);
-        } else if (inputs[0]->num_dims() == 4) {
-            output_width = inputs[0]->out_size(1) *
-                           inputs[0]->out_size(2) *
-                           inputs[0]->out_size(3);
-        }
-    }
 
     int num_dims() { return 2; }
 
@@ -357,6 +251,8 @@ class FlattenOp: public Op {
         }
         return size;
     }
+
+    FlattenOp(std::shared_ptr<Op> _input_op);
 };
 
 class DataOp: public Op {
@@ -365,16 +261,6 @@ class DataOp: public Op {
     int input_channels;
     int input_height;
     int input_width;
-
-    DataOp(int _batch_size,
-           int _input_channels,
-           int _input_height,
-           int _input_width) :
-        Op(),
-        batch_size(_batch_size),
-        input_channels(_input_channels),
-        input_height(_input_height),
-        input_width(_input_width) {}
 
     int num_dims() { return 4; }
 
@@ -392,4 +278,9 @@ class DataOp: public Op {
         }
         return size;
     }
-};
+
+    DataOp(int _batch_size,
+           int _input_channels,
+           int _input_height,
+           int _input_width);
+  };
