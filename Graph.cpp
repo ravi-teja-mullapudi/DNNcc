@@ -28,6 +28,20 @@ void Graph::add_op(std::string name, std::shared_ptr<Op> op, int pipeline_id) {
     pipelines[pipeline_id][name] = op;
 }
 
+void build_forward_graph(int pipeline_id, OpImpl impl, TargetArch arch) {
+    if (impl == OpImpl::REF) {
+        // Get the inputs and output shapes for the pipeline.
+
+        // Create input and output buffers for each op.
+
+        // Find a valid execution order for the ops.
+
+    } else {
+        // TODO: Handle other implementations.
+        assert(0);
+    }
+}
+
 void Graph::display_ops() {
     for (auto &op: ops) {
         std::cout << op.first << std::endl;
