@@ -35,11 +35,11 @@ void Graph::check() {
     // TODO: check if the groups form a graph that makes sense
 }
 
-void Graph::build_forward_group(int group_id,
+void Graph::build_forward_group(unsigned int group_id,
                                 std::vector<std::string>& output_ops) {
     OpImpl impl = std::get<0>(group_impl[group_id]);
     // Find a valid execution order for the ops.
-    std::vector<std::string> order, group_ins;
+    std::vector<std::string> order, group_ins, group_outs;
     std::map<std::string, int> num_prods;
 
     for (auto &op: groups[group_id]) {
@@ -49,7 +49,7 @@ void Graph::build_forward_group(int group_id,
         for (auto &in_op: op.second->input_ops) {
             bool found = false;
             for (auto &s: groups[group_id]) {
-                if (s.second == in_op) {
+               if (s.second == in_op) {
                     found = true;
                     break;
                 }
@@ -64,6 +64,27 @@ void Graph::build_forward_group(int group_id,
     for (auto &dep: num_prods) {
         if (dep.second == 0) {
             group_ins.push_back(dep.first);
+        }
+    }
+
+    // Get the output ops for the group.
+    for (auto &op: groups[group_id]) {
+        bool used_outside_group = false;
+        for (size_t g = 0; g < groups.size(); g++) {
+            if (g != group_id && !used_outside_group) {
+                for (auto &s: groups[g]) {
+                    for (auto &in: s.second->input_ops) {
+                        if (in == op.second) {
+                            used_outside_group = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (used_outside_group) {
+            group_outs.push_back(op.first);
         }
     }
 

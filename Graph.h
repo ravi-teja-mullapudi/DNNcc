@@ -32,7 +32,8 @@ class Graph {
     void add_op(std::string name, std::shared_ptr<Op> op, int group_id);
 
     void check();
-    void build_forward_group(int group_id, std::vector<std::string>& output_ops);
+    void build_forward_group(unsigned int group_id,
+                             std::vector<std::string>& output_ops);
     void build_forward(std::vector<std::string>& output_ops);
 
     void display_ops();
