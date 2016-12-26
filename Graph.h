@@ -11,7 +11,7 @@
 class Graph {
     public:
     std::vector<std::map<std::string, std::shared_ptr<Op>>> pipelines;
-    std::map<std::shared_ptr<Op>, shared_ptr<OpHalide>> halide_ops;
+    std::map<std::shared_ptr<Op>, std::shared_ptr<OpHalideImpl>> halide_ops;
 
     Graph() {}
 

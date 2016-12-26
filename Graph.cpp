@@ -29,15 +29,16 @@ void Graph::add_op(std::string name, std::shared_ptr<Op> op, int pipeline_id) {
 }
 
 void build_forward_graph(int pipeline_id, OpImpl impl, TargetArch arch) {
+    // Get the inputs and output shapes for the pipeline.
     if (impl == OpImpl::REF) {
-        // Get the inputs and output shapes for the pipeline.
-
         // Create input and output buffers for each op.
 
         // Find a valid execution order for the ops.
 
+    } else if (impl == OpImpl::HALIDE) {
+
     } else {
-        // TODO: Handle other implementations.
+        // TODO: Other implementations.
         assert(0);
     }
 }

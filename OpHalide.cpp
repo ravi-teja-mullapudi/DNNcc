@@ -1,9 +1,18 @@
 #include "OpHalide.h"
 
+// Sanity check to make sure the halide function is defined.
+void check_defined(Func f)
+{
+    if (!f.defined()) {
+        std::cout << f.name() << " is undefined" << std::endl;
+        exit(-1);
+    }
+}
+
 void affine_forward_halide(std::string name,
                            std::shared_ptr<AffineOp> op,
                            Func input,
-                           std::shared_ptr<HalideOpImpl> op_impl,
+                           std::shared_ptr<OpHalideImpl> op_impl,
                            TargetArch arch)
 {
     check_defined(input);
@@ -40,7 +49,7 @@ void affine_forward_halide(std::string name,
 void conv2d_forward_halide(std::string name,
                            std::shared_ptr<Conv2dOp> op,
                            Func input,
-                           std::shared_ptr<HalideOpImpl> op_impl,
+                           std::shared_ptr<OpHalideImpl> op_impl,
                            TargetArch arch)
 {
     check_defined(input);
@@ -108,7 +117,7 @@ void pool2d_forward_halide(std::string name,
                            std::shared_ptr<Pool2dOp> op,
                            PoolType pool_type,
                            Func input,
-                           std::shared_ptr<HalideOpImpl> op_impl,
+                           std::shared_ptr<OpHalideImpl> op_impl,
                            TargetArch arch)
 {
     check_defined(input);
@@ -165,7 +174,7 @@ void pool2d_forward_halide(std::string name,
 void relu_forward_halide(std::string name,
                          std::shared_ptr<ReLUOp> op,
                          Func input,
-                         std::shared_ptr<HalideOpImpl> op_impl,
+                         std::shared_ptr<OpHalideImpl> op_impl,
                          TargetArch arch)
 {
     check_defined(input);
@@ -217,7 +226,7 @@ void relu_forward_halide(std::string name,
 void softmax_forward_halide(std::string name,
                             std::shared_ptr<SoftMaxOp> op,
                             Func input,
-                            std::shared_ptr<HalideOpImpl> op_impl,
+                            std::shared_ptr<OpHalideImpl> op_impl,
                             TargetArch arch)
 {
     check_defined(input);
@@ -253,7 +262,7 @@ void softmax_forward_halide(std::string name,
 void lrn_forward_halide(std::string name,
                         std::shared_ptr<LRNOp> op,
                         Func input,
-                        std::shared_ptr<HalideOpImpl> op_impl,
+                        std::shared_ptr<OpHalideImpl> op_impl,
                         TargetArch arch)
 {
     check_defined(input);
@@ -262,7 +271,7 @@ void lrn_forward_halide(std::string name,
 void data_forward_halide(std::string name,
                          std::shared_ptr<DataOp> op,
                          Func input,
-                         std::shared_ptr<HalideOpImpl> op_impl,
+                         std::shared_ptr<OpHalideImpl> op_impl,
                          TargetArch arch)
 {
     check_defined(input);
@@ -271,7 +280,7 @@ void data_forward_halide(std::string name,
 void concat_forward_halide(std::string name,
                            std::shared_ptr<ConcatOp> op,
                            Func input,
-                           std::shared_ptr<HalideOpImpl> op_impl,
+                           std::shared_ptr<OpHalideImpl> op_impl,
                            TargetArch arch)
 {
     check_defined(input);
@@ -280,7 +289,7 @@ void concat_forward_halide(std::string name,
 void flatten_forward_halide(std::string name,
                            std::shared_ptr<FlattenOp> op,
                            Func input,
-                           std::shared_ptr<HalideOpImpl> op_impl,
+                           std::shared_ptr<OpHalideImpl> op_impl,
                            TargetArch arch)
 {
     check_defined(input);
