@@ -65,6 +65,10 @@ void conv2d_forward_halide(std::string name,
     int pad_w = op->pad_w;
     int pad_h = op->pad_h;
 
+    RDom r(0, op->filter_width,
+           0, op->filter_height,
+           0, op->input_channels);
+
     Var x, y, z, n;
     W_f(x, y, z, n) = W(x, y, z, n);
     stage(x, y, z, n) = b(z);
@@ -88,7 +92,7 @@ void conv2d_forward_halide(std::string name,
 
         forward.vectorize(x, 8);
 
-    } else (arch == TargetArch::GPU) {
+    } else if (arch == TargetArch::GPU) {
         assert(0);
     }
 
@@ -146,13 +150,13 @@ void pool2d_forward_halide(std::string name,
             forward.parallel(n);
         }
         forward.vectorize(x, 8);
-    } else (arch == TargetArch::GPU) {
+    } else if (arch == TargetArch::GPU) {
         assert(0);
     }
 
     forward.bound(x, 0, op->output_width)
            .bound(y, 0, op->output_height)
-           .bound(z, 0, op->output_channels)
+           .bound(z, 0, op->input_channels)
            .bound(n, 0, op->batch_size);
 
     op_impl->output = forward;
@@ -165,9 +169,10 @@ void relu_forward_halide(std::string name,
                          TargetArch arch)
 {
     check_defined(input);
-    Var x, y, z, n;
+    Var x, y, z, w;
     Func forward(name + "_forward");
-    switch(op->inputs[0]->out_dims()) {
+    float slope = op->slope;
+    switch(op->input_ops[0]->num_dims()) {
         case 1:
             if (op->slope == 0.0f) {
                 forward(x) = select(input(x) > 0, input(x), 0);
@@ -251,5 +256,32 @@ void lrn_forward_halide(std::string name,
                         std::shared_ptr<HalideOpImpl> op_impl,
                         TargetArch arch)
 {
+    check_defined(input);
+}
 
+void data_forward_halide(std::string name,
+                         std::shared_ptr<DataOp> op,
+                         Func input,
+                         std::shared_ptr<HalideOpImpl> op_impl,
+                         TargetArch arch)
+{
+    check_defined(input);
+}
+
+void concat_forward_halide(std::string name,
+                           std::shared_ptr<ConcatOp> op,
+                           Func input,
+                           std::shared_ptr<HalideOpImpl> op_impl,
+                           TargetArch arch)
+{
+    check_defined(input);
+}
+
+void flatten_forward_halide(std::string name,
+                           std::shared_ptr<FlattenOp> op,
+                           Func input,
+                           std::shared_ptr<HalideOpImpl> op_impl,
+                           TargetArch arch)
+{
+    check_defined(input);
 }
