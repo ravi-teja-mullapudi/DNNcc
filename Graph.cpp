@@ -1,8 +1,8 @@
 #include "Graph.h"
 
 void Graph::initialize_params(Params &params) {
-    for (size_t i = 0; i < pipelines.size(); i++) {
-        for (auto &op: pipelines[i]) {
+    for (size_t i = 0; i < groups.size(); i++) {
+        for (auto &op: groups[i]) {
             if (op.second->params.size() > 0) {
                 assert(params[op.first].size() == op.second->params.size());
                 for (size_t p = 0; p < params[op.first].size(); p++) {
@@ -13,28 +13,82 @@ void Graph::initialize_params(Params &params) {
     }
 }
 
-int Graph::add_pipeline() {
-    pipelines.push_back(std::map<std::string, std::shared_ptr<Op>>());
-    return pipelines.size() - 1;
+int Graph::add_group() {
+    groups.push_back(std::map<std::string, std::shared_ptr<Op>>());
+    int group_id = groups.size() - 1;
+    // Default implementation is the reference one.
+    group_impl[group_id] = std::make_tuple(OpImpl::REF, TargetArch::CPU);
+    return groups.size() - 1;
 }
 
-int Graph::num_pipelines() {
-    return pipelines.size();
+int Graph::num_groups() {
+    return groups.size();
 }
 
-void Graph::add_op(std::string name, std::shared_ptr<Op> op, int pipeline_id) {
-    assert(pipeline_id < (int) pipelines.size());
-    assert(pipelines[pipeline_id].find(name) == pipelines[pipeline_id].end());
-    pipelines[pipeline_id][name] = op;
+void Graph::add_op(std::string name, std::shared_ptr<Op> op, int group_id) {
+    assert(group_id < (int) groups.size());
+    assert(groups[group_id].find(name) == groups[group_id].end());
+    groups[group_id][name] = op;
 }
 
-void build_forward_graph(int pipeline_id, OpImpl impl, TargetArch arch) {
-    // Get the inputs and output shapes for the pipeline.
+void Graph::check() {
+    // TODO: check if the groups form a graph that makes sense
+}
+
+void Graph::build_forward_group(int group_id,
+                                std::vector<std::string>& output_ops) {
+    OpImpl impl = std::get<0>(group_impl[group_id]);
+    // Find a valid execution order for the ops.
+    std::vector<std::string> order, group_ins;
+    std::map<std::string, int> num_prods;
+
+    for (auto &op: groups[group_id]) {
+        assert(num_prods.find(op.first) == num_prods.end());
+        num_prods[op.first] = 0;
+        // Count number of dependecies in the group.
+        for (auto &in_op: op.second->input_ops) {
+            bool found = false;
+            for (auto &s: groups[group_id]) {
+                if (s.second == in_op) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                num_prods[op.first] += 1;
+            }
+        }
+    }
+
+    // Get the input ops for the group.
+    for (auto &dep: num_prods) {
+        if (dep.second == 0) {
+            group_ins.push_back(dep.first);
+        }
+    }
+
+    while (num_prods.size() > 0) {
+        std::string curr_op;
+        for (auto &op: num_prods) {
+            if (op.second == 0) {
+                curr_op = op.first;
+            }
+        }
+
+        num_prods.erase(curr_op);
+        order.push_back(curr_op);
+
+        for (auto &op: groups[group_id]) {
+            for (auto &in_op: op.second->input_ops) {
+                if (groups[group_id][curr_op] == in_op) {
+                    num_prods[op.first] -= 1;
+                }
+            }
+        }
+    }
+
     if (impl == OpImpl::REF) {
         // Create input and output buffers for each op.
-
-        // Find a valid execution order for the ops.
-
     } else if (impl == OpImpl::HALIDE) {
 
     } else {
@@ -43,9 +97,12 @@ void build_forward_graph(int pipeline_id, OpImpl impl, TargetArch arch) {
     }
 }
 
+void Graph::build_forward(std::vector<std::string>& output_ops) {
+}
+
 void Graph::display_ops() {
-    for (size_t i = 0; i < pipelines.size(); i++) {
-        for (auto &op: pipelines[i]) {
+    for (size_t i = 0; i < groups.size(); i++) {
+        for (auto &op: groups[i]) {
             std::cout << op.first << std::endl;
         }
     }
