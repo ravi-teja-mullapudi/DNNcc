@@ -56,15 +56,9 @@ void lrn_forward_halide(std::string name,
                         std::shared_ptr<OpHalideImpl> op_impl,
                         TargetArch arch);
 
-void data_forward_halide(std::string name,
-                         std::shared_ptr<DataOp> op,
-                         Func input,
-                         std::shared_ptr<OpHalideImpl> op_impl,
-                         TargetArch arch);
-
 void concat_forward_halide(std::string name,
                            std::shared_ptr<ConcatOp> op,
-                           Func input,
+                           std::vector<Func> inputs,
                            std::shared_ptr<OpHalideImpl> op_impl,
                            TargetArch arch);
 

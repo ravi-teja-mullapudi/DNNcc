@@ -12,8 +12,10 @@
 class Graph {
     public:
     std::vector<std::map<std::string, std::shared_ptr<Op>>> groups;
-    std::map<std::shared_ptr<Op>, std::shared_ptr<OpHalideImpl>> halide_ops;
     std::map<int, std::tuple<OpImpl, TargetArch>> group_impl;
+
+    std::map<std::string, std::shared_ptr<OpHalideImpl>> halide_ops;
+    std::map<int, std::map<std::string, ImageParam>> holide_op_ins;
 
     Graph() {}
 
@@ -32,8 +34,20 @@ class Graph {
     void add_op(std::string name, std::shared_ptr<Op> op, int group_id);
 
     void check();
+
+    void build_forward_halide(unsigned int group_id,
+                              const std::vector<std::string>& order,
+                              const std::vector<std::string>& group_ins,
+                              const std::vector<std::string>& group_outs);
+
+    void build_forward_ref(unsigned int group_id,
+                           const std::vector<std::string>& order,
+                           const std::vector<std::string>& group_ins,
+                           const std::vector<std::string>& group_outs);
+
     void build_forward_group(unsigned int group_id,
                              std::vector<std::string>& output_ops);
+
     void build_forward(std::vector<std::string>& output_ops);
 
     void display_ops();

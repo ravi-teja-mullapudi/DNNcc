@@ -31,17 +31,46 @@ void Graph::add_op(std::string name, std::shared_ptr<Op> op, int group_id) {
     groups[group_id][name] = op;
 }
 
-void Graph::check() {
-    // TODO: check if the groups form a graph that makes sense
+void Graph::build_forward_halide(unsigned int group_id,
+                                 const std::vector<std::string>& order,
+                                 const std::vector<std::string>& group_ins,
+                                 const std::vector<std::string>& group_outs) {
+
+    holide_op_ins[group_id] = std::map<std::string, ImageParam>();
+    for (auto &in: group_ins) {
+        assert(groups[group_id][in]->num_dims() <= 4);
+        holide_op_ins[group_id][in] =
+            ImageParam(Float(32), groups[group_id][in]->num_dims());
+    }
+
+    for (auto &op_name: order) {
+        auto op = groups[group_id][op_name];
+        if (std::dynamic_pointer_cast<AffineOp>(op) != nullptr) {
+        } else if (std::dynamic_pointer_cast<Conv2dOp>(op) != nullptr) {
+        } else if (std::dynamic_pointer_cast<Pool2dOp>(op) != nullptr) {
+        } else if (std::dynamic_pointer_cast<ReLUOp>(op) != nullptr) {
+        } else if (std::dynamic_pointer_cast<SoftMaxOp>(op) != nullptr) {
+        } else if (std::dynamic_pointer_cast<LRNOp>(op) != nullptr) {
+        } else if (std::dynamic_pointer_cast<ConcatOp>(op) != nullptr) {
+        } else if (std::dynamic_pointer_cast<FlattenOp>(op) != nullptr) {
+        } else if (std::dynamic_pointer_cast<DataOp>(op) != nullptr) {
+        }
+    }
+}
+
+void Graph::build_forward_ref(unsigned int group_id,
+                              const std::vector<std::string>& order,
+                              const std::vector<std::string>& group_ins,
+                              const std::vector<std::string>& group_outs) {
 }
 
 void Graph::build_forward_group(unsigned int group_id,
                                 std::vector<std::string>& output_ops) {
     OpImpl impl = std::get<0>(group_impl[group_id]);
-    // Find a valid execution order for the ops.
     std::vector<std::string> order, group_ins, group_outs;
     std::map<std::string, int> num_prods;
 
+    // Find a valid execution order for the ops.
     for (auto &op: groups[group_id]) {
         assert(num_prods.find(op.first) == num_prods.end());
         num_prods[op.first] = 0;
@@ -88,6 +117,12 @@ void Graph::build_forward_group(unsigned int group_id,
         }
     }
 
+    for (auto &op: output_ops) {
+        if (groups[group_id].find(op) != groups[group_id].end()) {
+            group_outs.push_back(op);
+        }
+    }
+
     while (num_prods.size() > 0) {
         std::string curr_op;
         for (auto &op: num_prods) {
@@ -110,12 +145,17 @@ void Graph::build_forward_group(unsigned int group_id,
 
     if (impl == OpImpl::REF) {
         // Create input and output buffers for each op.
+        build_forward_ref(group_id, order, group_ins, group_outs);
     } else if (impl == OpImpl::HALIDE) {
-
+        build_forward_halide(group_id, order, group_ins, group_outs);
     } else {
         // TODO: Other implementations.
         assert(0);
     }
+}
+
+void Graph::check() {
+    // TODO: check if the groups form a graph that makes sense
 }
 
 void Graph::build_forward(std::vector<std::string>& output_ops) {
