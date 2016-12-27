@@ -27,8 +27,12 @@ int Graph::num_groups() {
 
 void Graph::add_op(std::string name, std::shared_ptr<Op> op, int group_id) {
     assert(group_id < (int) groups.size());
-    assert(groups[group_id].find(name) == groups[group_id].end());
+    for (size_t g = 0; g < groups.size(); g++) {
+        assert(groups[g].find(name) == groups[g].end());
+    }
     groups[group_id][name] = op;
+    assert(op_name_map.find(op) == op_name_map.end());
+    op_name_map[op] = name;
 }
 
 void Graph::build_forward_halide(unsigned int group_id,
@@ -36,26 +40,140 @@ void Graph::build_forward_halide(unsigned int group_id,
                                  const std::vector<std::string>& group_ins,
                                  const std::vector<std::string>& group_outs) {
 
-    holide_op_ins[group_id] = std::map<std::string, ImageParam>();
+    halide_op_ins[group_id] = std::map<std::string, ImageParam>();
+    TargetArch arch = std::get<1>(group_impl[group_id]);
+
     for (auto &in: group_ins) {
         assert(groups[group_id][in]->num_dims() <= 4);
-        holide_op_ins[group_id][in] =
+        halide_op_ins[group_id][in] =
             ImageParam(Float(32), groups[group_id][in]->num_dims());
     }
 
     for (auto &op_name: order) {
+
         auto op = groups[group_id][op_name];
+        std::vector<Func> ins;
+        for (size_t in = 0; in < op->input_ops.size(); in++) {
+            auto in_name = op_name_map[op->input_ops[in]];
+
+            if (halide_ops.find(in_name) == halide_ops.end()) {
+                assert(halide_op_ins[group_id].find(in_name) !=
+                        halide_op_ins[group_id].end());
+
+                ins.push_back(halide_op_ins[group_id][in_name]);
+            } else {
+                ins.push_back(halide_ops[in_name]->output);
+            }
+        }
+
+        halide_ops[op_name] = std::make_shared<OpHalideImpl>();
+
         if (std::dynamic_pointer_cast<AffineOp>(op) != nullptr) {
+
+            assert(ins.size() == 1);
+            auto op_cast = std::dynamic_pointer_cast<AffineOp>(op);
+            affine_forward_halide(op_name, op_cast, ins[0],
+                                  halide_ops[op_name], arch);
+
         } else if (std::dynamic_pointer_cast<Conv2dOp>(op) != nullptr) {
+
+            assert(ins.size() == 1);
+            auto op_cast = std::dynamic_pointer_cast<Conv2dOp>(op);
+            conv2d_forward_halide(op_name, op_cast, ins[0],
+                                  halide_ops[op_name], arch);
+
         } else if (std::dynamic_pointer_cast<Pool2dOp>(op) != nullptr) {
+
+            assert(ins.size() == 1);
+            auto op_cast = std::dynamic_pointer_cast<Pool2dOp>(op);
+            pool2d_forward_halide(op_name, op_cast, ins[0],
+                                  halide_ops[op_name], arch);
+
         } else if (std::dynamic_pointer_cast<ReLUOp>(op) != nullptr) {
+
+            assert(ins.size() == 1);
+            auto op_cast = std::dynamic_pointer_cast<ReLUOp>(op);
+            relu_forward_halide(op_name, op_cast, ins[0],
+                                halide_ops[op_name], arch);
+
         } else if (std::dynamic_pointer_cast<SoftMaxOp>(op) != nullptr) {
+
+            assert(ins.size() == 1);
+            auto op_cast = std::dynamic_pointer_cast<SoftMaxOp>(op);
+            softmax_forward_halide(op_name, op_cast, ins[0],
+                                   halide_ops[op_name], arch);
+
         } else if (std::dynamic_pointer_cast<LRNOp>(op) != nullptr) {
+
+            assert(ins.size() == 1);
+            auto op_cast = std::dynamic_pointer_cast<LRNOp>(op);
+            lrn_forward_halide(op_name, op_cast, ins[0],
+                               halide_ops[op_name], arch);
+
         } else if (std::dynamic_pointer_cast<ConcatOp>(op) != nullptr) {
+
+            assert(ins.size() == 1);
+            auto op_cast = std::dynamic_pointer_cast<ConcatOp>(op);
+            concat_forward_halide(op_name, op_cast, ins,
+                                  halide_ops[op_name], arch);
+
         } else if (std::dynamic_pointer_cast<FlattenOp>(op) != nullptr) {
+
+            assert(ins.size() == 1);
+            auto op_cast = std::dynamic_pointer_cast<FlattenOp>(op);
+            flatten_forward_halide(op_name, op_cast, ins[0],
+                                   halide_ops[op_name], arch);
+
         } else if (std::dynamic_pointer_cast<DataOp>(op) != nullptr) {
+
+            assert(ins.size() == 0);
+            halide_op_ins[group_id][op_name] =
+                ImageParam(Float(32), groups[group_id][op_name]->num_dims());
+
+        } else {
+            // Unknown op.
+            assert(0);
         }
     }
+
+    std::vector<Func> outs;
+    for (auto &out_name: group_outs) {
+        auto op = groups[group_id][out_name];
+        switch(op->num_dims()) {
+            case 1:
+                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(0)));
+                break;
+            case 2:
+                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(0),
+                                                                 op->out_size(1)));
+                break;
+            case 3:
+                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(0),
+                                                                 op->out_size(1),
+                                                                 op->out_size(2)));
+                break;
+            case 4:
+                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(0),
+                                                                 op->out_size(1),
+                                                                 op->out_size(2),
+                                                                 op->out_size(3)));
+                break;
+            default:
+                std::cerr << "Halide currently only supports 4d buffers." <<
+                std::endl;
+        }
+        outs.push_back(halide_ops[out_name]->output);
+    }
+
+    Target target = get_target_from_environment();
+    if (arch == TargetArch::GPU) {
+        target.set_feature(Target::CUDA);
+        target.set_feature(Target::CUDACapability50);
+    }
+
+    Pipeline p(outs);
+    halide_pipelines[group_id] = p;
+    halide_pipelines[group_id].compile_jit(target);
 }
 
 void Graph::build_forward_ref(unsigned int group_id,

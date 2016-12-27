@@ -33,7 +33,6 @@ void conv2d_forward_halide(std::string name,
 
 void pool2d_forward_halide(std::string name,
                            std::shared_ptr<Pool2dOp> op,
-                           PoolType pool_type,
                            Func input,
                            std::shared_ptr<OpHalideImpl> op_impl,
                            TargetArch arch);

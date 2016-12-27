@@ -115,7 +115,6 @@ void conv2d_forward_halide(std::string name,
 
 void pool2d_forward_halide(std::string name,
                            std::shared_ptr<Pool2dOp> op,
-                           PoolType pool_type,
                            Func input,
                            std::shared_ptr<OpHalideImpl> op_impl,
                            TargetArch arch)
@@ -140,13 +139,13 @@ void pool2d_forward_halide(std::string name,
     Var x, y, z, n;
 
     RDom r(0, p_w, 0, p_h);
-    if (pool_type == PoolType::MAX) {
+    if (op->pool_type == PoolType::MAX) {
         stage(x, y, z, n) = Float(32).min();
         stage(x, y, z, n) = max(in_bound(x * stride_w + r.x - pad_w,
                                          y * stride_h + r.y - pad_h,
                                          z, n), stage(x, y, z, n));
         forward(x, y, z, n) = stage(x, y, z, n);
-    } else if (pool_type == PoolType::AVG) {
+    } else if (op->pool_type == PoolType::AVG) {
         stage(x, y, z, n) = 0.0f;
         stage(x, y, z, n) = in_bound(x * stride_w + r.x - pad_w,
                                      y * stride_h + r.y - pad_h,

@@ -11,11 +11,16 @@
 
 class Graph {
     public:
+    // TODO: consolidate into a class
     std::vector<std::map<std::string, std::shared_ptr<Op>>> groups;
+    std::map<std::shared_ptr<Op>, std::string> op_name_map;
     std::map<int, std::tuple<OpImpl, TargetArch>> group_impl;
 
+    // TODO: consolidate into a class
     std::map<std::string, std::shared_ptr<OpHalideImpl>> halide_ops;
-    std::map<int, std::map<std::string, ImageParam>> holide_op_ins;
+    std::map<int, std::map<std::string, ImageParam>> halide_op_ins;
+    std::map<int, std::vector<Buffer<>>> halide_op_outs;
+    std::map<int, Pipeline> halide_pipelines;
 
     Graph() {}
 
