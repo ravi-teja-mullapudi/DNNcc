@@ -17,7 +17,7 @@ int Graph::add_group() {
     groups.push_back(std::map<std::string, std::shared_ptr<Op>>());
     int group_id = groups.size() - 1;
     // Default implementation is the reference one.
-    group_impl[group_id] = std::make_tuple(OpImpl::REF, TargetArch::CPU);
+    group_impl[group_id] = std::make_tuple(OpImpl::HALIDE, TargetArch::CPU);
     return groups.size() - 1;
 }
 
@@ -50,7 +50,6 @@ void Graph::build_forward_halide(unsigned int group_id,
     }
 
     for (auto &op_name: order) {
-
         auto op = groups[group_id][op_name];
         std::vector<Func> ins;
         for (size_t in = 0; in < op->input_ops.size(); in++) {
@@ -129,6 +128,9 @@ void Graph::build_forward_halide(unsigned int group_id,
             assert(ins.size() == 0);
             halide_op_ins[group_id][op_name] =
                 ImageParam(Float(32), groups[group_id][op_name]->num_dims());
+            auto op_cast = std::dynamic_pointer_cast<DataOp>(op);
+            data_forward_halide(op_name, op_cast, halide_op_ins[group_id][op_name],
+                                halide_ops[op_name], arch);
 
         } else {
             // Unknown op.
@@ -144,19 +146,19 @@ void Graph::build_forward_halide(unsigned int group_id,
                 halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(0)));
                 break;
             case 2:
-                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(0),
-                                                                 op->out_size(1)));
+                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(1),
+                                                                 op->out_size(0)));
                 break;
             case 3:
-                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(0),
+                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(2),
                                                                  op->out_size(1),
-                                                                 op->out_size(2)));
+                                                                 op->out_size(0)));
                 break;
             case 4:
-                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(0),
-                                                                 op->out_size(1),
+                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(3),
                                                                  op->out_size(2),
-                                                                 op->out_size(3)));
+                                                                 op->out_size(1),
+                                                                 op->out_size(0)));
                 break;
             default:
                 std::cerr << "Halide currently only supports 4d buffers." <<
@@ -183,7 +185,7 @@ void Graph::build_forward_ref(unsigned int group_id,
 }
 
 void Graph::build_forward_group(unsigned int group_id,
-                                std::vector<std::string>& output_ops) {
+                                const std::vector<std::string>& output_ops) {
     OpImpl impl = std::get<0>(group_impl[group_id]);
     std::vector<std::string> order, group_ins, group_outs;
     std::map<std::string, int> num_prods;
@@ -276,7 +278,10 @@ void Graph::check() {
     // TODO: check if the groups form a graph that makes sense
 }
 
-void Graph::build_forward(std::vector<std::string>& output_ops) {
+void Graph::build_forward(const std::vector<std::string>& output_ops) {
+    for (size_t g = 0; g < groups.size(); g++) {
+        build_forward_group(g, output_ops);
+    }
 }
 
 void Graph::display_ops() {

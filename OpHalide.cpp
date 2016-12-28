@@ -13,8 +13,8 @@ void affine_forward_halide(std::string name,
                            std::shared_ptr<AffineOp> op,
                            Func input,
                            std::shared_ptr<OpHalideImpl> op_impl,
-                           TargetArch arch)
-{
+                           TargetArch arch) {
+
     check_defined(input);
     Func forward(name + "_forward");
 
@@ -50,8 +50,8 @@ void conv2d_forward_halide(std::string name,
                            std::shared_ptr<Conv2dOp> op,
                            Func input,
                            std::shared_ptr<OpHalideImpl> op_impl,
-                           TargetArch arch)
-{
+                           TargetArch arch) {
+
     check_defined(input);
     Func in_bound(name + "_bound");
     in_bound = BoundaryConditions::constant_exterior(input, 0,
@@ -117,8 +117,8 @@ void pool2d_forward_halide(std::string name,
                            std::shared_ptr<Pool2dOp> op,
                            Func input,
                            std::shared_ptr<OpHalideImpl> op_impl,
-                           TargetArch arch)
-{
+                           TargetArch arch) {
+
     check_defined(input);
     Func in_bound(name + "_bound");
     in_bound = BoundaryConditions::constant_exterior(input, 0,
@@ -157,7 +157,13 @@ void pool2d_forward_halide(std::string name,
         if (op->batch_size > 1) {
             forward.parallel(n);
         }
-        forward.vectorize(x, 8);
+
+        int vec_len = 8;
+        if (op->out_size(3) > vec_len) {
+            forward.vectorize(x, vec_len);
+        }
+
+        forward.compute_root();
     } else if (arch == TargetArch::GPU) {
         assert(0);
     }
@@ -174,8 +180,8 @@ void relu_forward_halide(std::string name,
                          std::shared_ptr<ReLUOp> op,
                          Func input,
                          std::shared_ptr<OpHalideImpl> op_impl,
-                         TargetArch arch)
-{
+                         TargetArch arch) {
+
     check_defined(input);
     Var x, y, z, w;
     Func forward(name + "_forward");
@@ -226,8 +232,7 @@ void softmax_forward_halide(std::string name,
                             std::shared_ptr<SoftMaxOp> op,
                             Func input,
                             std::shared_ptr<OpHalideImpl> op_impl,
-                            TargetArch arch)
-{
+                            TargetArch arch) {
     check_defined(input);
 
     Func forward(name + "_forward");
@@ -262,8 +267,7 @@ void lrn_forward_halide(std::string name,
                         std::shared_ptr<LRNOp> op,
                         Func input,
                         std::shared_ptr<OpHalideImpl> op_impl,
-                        TargetArch arch)
-{
+                        TargetArch arch) {
     check_defined(input);
 }
 
@@ -271,8 +275,7 @@ void concat_forward_halide(std::string name,
                            std::shared_ptr<ConcatOp> op,
                            std::vector<Func> inputs,
                            std::shared_ptr<OpHalideImpl> op_impl,
-                           TargetArch arch)
-{
+                           TargetArch arch) {
     for (auto &in: inputs) {
         check_defined(in);
     }
@@ -285,4 +288,38 @@ void flatten_forward_halide(std::string name,
                            TargetArch arch)
 {
     check_defined(input);
+    Func forward(name + "_forward");
+
+    Var x, n;
+
+    if (op->input_ops[0]->num_dims() == 2) {
+        forward(x, n) = input(x, n);
+    } else if (op->input_ops[0]->num_dims() == 3) {
+        int w = op->input_ops[0]->out_size(2);
+        forward(x, n) = input(x%w, x/w, n);
+    } else if (op->input_ops[0]->num_dims() == 4) {
+        int w = op->input_ops[0]->out_size(3);
+        int h = op->input_ops[0]->out_size(2);
+        forward(x, n) = input(x%w, (x%(w*h))/w, x/(w*h), n);
+    }
+
+    if (arch == TargetArch::CPU) {
+        forward.compute_root().parallel(n);
+    } else {
+        assert(0);
+    }
+
+    op_impl->output = forward;
+}
+
+void data_forward_halide(std::string name,
+                           std::shared_ptr<DataOp> op,
+                           Func input,
+                           std::shared_ptr<OpHalideImpl> op_impl,
+                           TargetArch arch) {
+    Var x, y, z, n;
+    Func forward(name + "_forward");
+    forward(x, y, z, n) = input(x, y, z, n);
+
+    op_impl->output = forward;
 }

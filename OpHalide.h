@@ -66,3 +66,9 @@ void flatten_forward_halide(std::string name,
                            Func input,
                            std::shared_ptr<OpHalideImpl> op_impl,
                            TargetArch arch);
+
+void data_forward_halide(std::string name,
+                         std::shared_ptr<DataOp> op,
+                         Func input,
+                         std::shared_ptr<OpHalideImpl> op_impl,
+                         TargetArch arch);

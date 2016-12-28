@@ -51,9 +51,9 @@ class Graph {
                            const std::vector<std::string>& group_outs);
 
     void build_forward_group(unsigned int group_id,
-                             std::vector<std::string>& output_ops);
+                             const std::vector<std::string>& output_ops);
 
-    void build_forward(std::vector<std::string>& output_ops);
+    void build_forward(const std::vector<std::string>& output_ops);
 
     void display_ops();
 };
