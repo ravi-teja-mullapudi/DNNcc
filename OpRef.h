@@ -1,27 +1,38 @@
 #include "NDArray.h"
 #include "Op.h"
 
-void conv2d_forward_ref(int batch_size,
-                        int input_channels,
-                        int input_height,
-                        int input_width,
-                        int output_channels,
-                        int filter_height,
-                        int filter_width,
-                        int stride_h,
-                        int stride_w,
+void affine_forward_ref(std::shared_ptr<AffineOp> op,
                         NDArray<float>& input,
-                        NDArray<float>& weights,
                         NDArray<float>& output);
 
-void pool2d_forward_ref(int batch_size,
-                        int input_channels,
-                        int input_height,
-                        int input_width,
-                        int pool_width,
-                        int pool_height,
-                        int stride_h,
-                        int stride_w,
-                        PoolType pool_type,
+void conv2d_forward_ref(std::shared_ptr<Conv2dOp> op,
                         NDArray<float>& input,
                         NDArray<float>& output);
+
+void pool2d_forward_ref(std::shared_ptr<Pool2dOp> op,
+                        NDArray<float>& input,
+                        NDArray<float>& output);
+
+void relu_forward_ref(std::shared_ptr<ReLUOp> op,
+                      NDArray<float>& input,
+                      NDArray<float>& output);
+
+void softmax_forward_ref(std::shared_ptr<SoftMaxOp> op,
+                         NDArray<float>& input,
+                         NDArray<float>& output);
+
+void lrn_forward_ref(std::shared_ptr<LRNOp> op,
+                     NDArray<float>& input,
+                     NDArray<float>& output);
+
+void concat_forward_ref(std::shared_ptr<ConcatOp> op,
+                        std::vector<NDArray<float>>& inputs,
+                        NDArray<float>& output);
+
+void flatten_forward_ref(std::shared_ptr<FlattenOp> op,
+                         NDArray<float>& input,
+                         NDArray<float>& output);
+
+void data_forward_ref(std::shared_ptr<DataOp> op,
+                      NDArray<float>& input,
+                      NDArray<float>& output);

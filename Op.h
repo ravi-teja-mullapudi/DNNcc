@@ -17,10 +17,6 @@ class Op {
     // Ordered list of parameter gradients of the op.
     std::vector<NDArray<float>> param_grads;
 
-    // Storage for op inputs and output.
-    std::vector<NDArray<float>> inputs;
-    NDArray<float> output;
-
     Op() {}
 
     Op(const std::vector<std::shared_ptr<Op>>& _input_ops) {

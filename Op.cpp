@@ -40,9 +40,9 @@ Conv2dOp::Conv2dOp(int _output_channels,
     output_width = (1 + (input_width + 2 * pad_w - filter_width)/stride_w);
 
     params.push_back(NDArray<float>({output_channels,
-                input_channels,
-                filter_height,
-                filter_width}));
+                                     input_channels,
+                                     filter_height,
+                                     filter_width}));
     params.push_back(NDArray<float>({output_channels}));
 
     // TODO: Create buffers for gradients
@@ -71,6 +71,9 @@ Pool2dOp::Pool2dOp(int _pool_height,
     pad_h = (pool_height - 1)/2;
     pad_w = (pool_width - 1)/2;
 
+    // TODO: There is a discrepancy between the output widths when compared
+    // to caffe. Resolve this by looking at different frameworks and doing
+    // the right thing.
     output_height = 1 +
         std::ceil((float)(input_height + 2 * pad_h - pool_height)/stride_h);
     output_width = 1 +

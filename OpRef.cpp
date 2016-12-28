@@ -1,22 +1,30 @@
 #include "OpRef.h"
-void conv2d_forward_ref(int batch_size,
-                        int input_channels,
-                        int input_height,
-                        int input_width,
-                        int output_channels,
-                        int filter_height,
-                        int filter_width,
-                        int stride_h,
-                        int stride_w,
+void affine_forward_ref(std::shared_ptr<AffineOp> op,
                         NDArray<float>& input,
-                        NDArray<float>& weights,
                         NDArray<float>& output) {
 
-    int pad_w = (filter_width - 1)/2;
-    int pad_h = (filter_height - 1)/2;
+}
 
-    int output_height = (1 + (input_height + 2 * pad_h - filter_height)/stride_h);
-    int output_width = (1 + (input_width + 2 * pad_w - filter_width)/stride_w);
+void conv2d_forward_ref(std::shared_ptr<Conv2dOp> op,
+                        NDArray<float>& input,
+                        NDArray<float>& output) {
+
+    int batch_size = op->batch_size;
+    int input_channels = op->input_channels;
+    int input_height = op->input_height;
+    int input_width = op->input_width;
+    int output_channels = op->output_channels;
+    int filter_width = op->filter_width;
+    int filter_height = op->filter_height;
+    int stride_h = op->stride_h;
+    int stride_w = op->stride_w;
+    int pad_w = op->pad_w;
+    int pad_h = op->pad_h;
+    int output_height = op->output_height;
+    int output_width = op->output_width;
+
+    NDArray<float>& weights = op->params[0];
+    NDArray<float>& bias = op->params[1];
 
     for (int b = 0; b < batch_size; b++) {
         for(int out_c = 0; out_c < output_channels; out_c++) {
@@ -36,33 +44,30 @@ void conv2d_forward_ref(int batch_size,
                             }
                         }
                     }
-                    output(b, out_c, out_h, out_w) = val;
+                    output(b, out_c, out_h, out_w) = val + bias(out_c);
                 }
             }
         }
     }
 }
 
-void pool2d_forward_ref(PoolType pool_type,
-                        int batch_size,
-                        int input_channels,
-                        int input_height,
-                        int input_width,
-                        int pool_width,
-                        int pool_height,
-                        int stride_h,
-                        int stride_w,
+void pool2d_forward_ref(std::shared_ptr<Pool2dOp> op,
                         NDArray<float>& input,
                         NDArray<float>& output) {
 
-    int pad_w = (pool_width - 1)/2;
-    int pad_h = (pool_height - 1)/2;
-
-    // TODO: There is a discrepancy between the output widths when compared
-    // to caffe. Resolve this by looking at different frameworks and doing
-    // the right thing.
-    int output_width = (1 + (input_width + 2 * pad_w - pool_width)/stride_w);
-    int output_height = (1 + (input_height + 2 * pad_h - pool_height)/stride_h);
+    PoolType pool_type = op->pool_type;
+    int batch_size = op->batch_size;
+    int input_channels = op->input_channels;
+    int input_height = op->input_height;
+    int input_width = op->input_width;
+    int pool_width = op->pool_width;
+    int pool_height = op->pool_height;
+    int stride_h = op->stride_h;
+    int stride_w = op->stride_w;
+    int pad_w = op->pad_w;
+    int pad_h = op->pad_h;
+    int output_width = op->output_width;
+    int output_height = op->output_height;
 
     for(int b = 0; b < batch_size; b++) {
         for(int ch = 0; ch < input_channels; ch++) {
@@ -107,4 +112,34 @@ void pool2d_forward_ref(PoolType pool_type,
             }
         }
     }
+}
+
+void relu_forward_ref(std::shared_ptr<ReLUOp> op,
+                      NDArray<float>& input,
+                      NDArray<float>& output) {
+}
+
+void softmax_forward_ref(std::shared_ptr<SoftMaxOp> op,
+                         NDArray<float>& input,
+                         NDArray<float>& output) {
+}
+
+void lrn_forward_ref(std::shared_ptr<LRNOp> op,
+                     NDArray<float>& input,
+                     NDArray<float>& output) {
+}
+
+void concat_forward_ref(std::shared_ptr<ConcatOp> op,
+                        std::vector<NDArray<float>>& inputs,
+                        NDArray<float>& output) {
+}
+
+void flatten_forward_ref(std::shared_ptr<FlattenOp> op,
+                         NDArray<float>& input,
+                         NDArray<float>& output) {
+}
+
+void data_forward_ref(std::shared_ptr<DataOp> op,
+                      NDArray<float>& input,
+                      NDArray<float>& output) {
 }

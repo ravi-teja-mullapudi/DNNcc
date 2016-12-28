@@ -14,8 +14,11 @@ void check_defined(Func f);
 class OpHalideImpl {
     public:
     Func output;
+    // Ordered list of learnable parameters of the op.
     std::vector<ImageParam> params;
+    // Ordered list of learnable parameters of the op.
     std::vector<Func> param_grads;
+    // Ordered list of gradient inputs to the op.
     std::vector<Func> input_grads;
 };
 
