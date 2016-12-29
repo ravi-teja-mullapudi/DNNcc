@@ -173,6 +173,13 @@ void Graph::build_forward_halide(unsigned int group_id) {
 }
 
 void Graph::build_forward_ref(unsigned int group_id) {
+    for (auto &op: groups[group_id]) {
+        std::vector<int> buf_sizes;
+        for (int d = 0; d < op.second->num_dims(); d++) {
+            buf_sizes.push_back(op.second->out_size(d));
+        }
+        op_outs[op.first] = get_ndarray_t(buf_sizes, op.second->type);
+    }
 }
 
 void Graph::build_forward_group(unsigned int group_id,
