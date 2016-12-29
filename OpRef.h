@@ -2,7 +2,7 @@
 #include "Op.h"
 
 template <typename T>
-void sum_forward_ref(std::shared_ptr<AffineOp> op,
+void sum_forward_ref(std::shared_ptr<SumOp> op,
                      std::vector<NDArray<T>>& inputs,
                      NDArray<T>& output);
 

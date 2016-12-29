@@ -306,9 +306,24 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
         if (impl == OpImpl::HALIDE) {
             // Set the Halide input buffers from corresponding NDArray buffers
         } else if (impl == OpImpl::REF) {
+            // TODO: Get rid of the giant switch case
             for (auto &op_name: order[g]) {
                 auto op = groups[g][op_name];
-                if (std::dynamic_pointer_cast<AffineOp>(op) != nullptr) {
+                if (std::dynamic_pointer_cast<SumOp>(op) != nullptr) {
+
+                    auto op_cast = std::dynamic_pointer_cast<SumOp>(op);
+                    std::vector<NDArray<float>> op_ins;
+                    for (size_t in = 0; in < op->input_ops.size(); in++) {
+                        auto in_op_name = op_name_map[op->input_ops[in]];
+                        op_ins.push_back(get_ndarray<float>(op_outs[in_op_name]));
+                    }
+
+                    NDArray<float>& op_out =
+                        get_ndarray<float>(op_outs[op_name]);
+
+                    sum_forward_ref(op_cast, op_ins, op_out);
+
+                } else if (std::dynamic_pointer_cast<AffineOp>(op) != nullptr) {
 
                     auto in_op_name = op_name_map[op->input_ops[0]];
                     auto op_cast = std::dynamic_pointer_cast<AffineOp>(op);

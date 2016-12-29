@@ -1,9 +1,17 @@
 #include "OpRef.h"
 
 template <typename T>
-void sum_forward_ref(std::shared_ptr<AffineOp> op,
+void sum_forward_ref(std::shared_ptr<SumOp> op,
                      std::vector<NDArray<T>>& inputs,
                      NDArray<T>& output) {
+    int num_ins = op->input_ops.size();
+    assert((int)inputs.size() == num_ins);
+
+    // initialize output to zero
+    output.initialize(T(0));
+    for (int in = 0; in < num_ins; in++) {
+        output.add(inputs[in]);
+    }
 }
 
 template <typename T>
@@ -161,7 +169,7 @@ void data_forward_ref(std::shared_ptr<DataOp> op,
 }
 
 template
-void sum_forward_ref<float>(std::shared_ptr<AffineOp> op,
+void sum_forward_ref<float>(std::shared_ptr<SumOp> op,
                             std::vector<NDArray<float>>& inputs,
                             NDArray<float>& output);
 

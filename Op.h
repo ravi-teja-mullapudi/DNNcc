@@ -286,4 +286,19 @@ class DataOp: public Op {
            int _input_width);
 };
 
+class SumOp: public Op {
+    public:
+    std::vector<int> dim_sizes;
+
+    int num_dims() { return dim_sizes.size(); }
+
+    int out_size(int dim_id) {
+        assert(dim_id < (int)dim_sizes.size());
+        return dim_sizes[dim_id];
+    }
+
+    SumOp(const std::vector<int>& _dim_sizes,
+          std::vector<std::shared_ptr<Op>>& _input_ops);
+};
+
 NDArray_t get_ndarray_t(const std::vector<int>& sizes, DataType type);

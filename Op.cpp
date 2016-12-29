@@ -190,4 +190,19 @@ DataOp::DataOp(int _batch_size,
                  input_width(_input_width) {
 
     type = DataType::Float32;
+};
+
+SumOp::SumOp(const std::vector<int>& _dim_sizes,
+             std::vector<std::shared_ptr<Op>>& _input_ops)
+             : Op(_input_ops),
+               dim_sizes(_dim_sizes) {
+
+    type = DataType::Float32;
+
+    for (auto &op: input_ops) {
+        assert(op->num_dims() == (int)dim_sizes.size());
+        for (int d = 0; d < op->num_dims(); d++) {
+            assert(op->out_size(d) == dim_sizes[d]);
+        }
+    }
 }
