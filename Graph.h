@@ -29,6 +29,8 @@ class Graph {
     std::map<int, std::vector<std::string>> group_ins;
     std::map<int, std::vector<std::string>> group_outs;
 
+    std::vector<std::string> graph_outs;
+
     Graph() {}
 
     // Initialize the parameters of operations in the graph using the

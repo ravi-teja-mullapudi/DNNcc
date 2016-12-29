@@ -269,6 +269,11 @@ void Graph::check() {
 }
 
 void Graph::build_forward(const std::vector<std::string>& output_ops) {
+
+    for (auto &op: output_ops) {
+        graph_outs.push_back(op);
+    }
+
     for (size_t g = 0; g < groups.size(); g++) {
         build_forward_group(g, output_ops);
     }
@@ -399,4 +404,12 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
             assert(0);
         }
     }
+
+    std::map<std::string, NDArray_t> outputs;
+    for (auto &op: graph_outs) {
+        assert(op_outs.find(op) != op_outs.end());
+        outputs[op] = op_outs[op];
+    }
+
+    return outputs;
 }
