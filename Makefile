@@ -25,5 +25,10 @@ graph.o: Op.h OpImpl.h Graph.h Graph.cpp ModelIO.h modelio.o op.o halide_op.o re
 classify: ImagenetClassification.cpp networks/Vgg.h graph.o op.o halide_op.o ref_op.o
 	$(CXX) $(CXXFLAGS) ImagenetClassification.cpp graph.o ref_op.o op.o halide_op.o $(HALIDE_INC) \
 					   -I./ $(HALIDE_LIB) -o classify
+
+test_ref: tests/RefGraphTest.cpp graph.o op.o halide_op.o ref_op.o
+	$(CXX) $(CXXFLAGS) tests/RefGraphTest.cpp graph.o ref_op.o op.o halide_op.o $(HALIDE_INC) \
+					   -I./ $(HALIDE_LIB) -o test_ref
+
 clean:
-	rm -rf modelio.o graph.o op.o halide_op.o ref_op.o classify
+	rm -rf modelio.o graph.o op.o halide_op.o ref_op.o classify test_ref

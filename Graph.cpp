@@ -17,7 +17,7 @@ int Graph::add_group() {
     groups.push_back(std::map<std::string, std::shared_ptr<Op>>());
     int group_id = groups.size() - 1;
     // Default implementation is the reference one.
-    group_impl[group_id] = std::make_tuple(OpImpl::HALIDE, TargetArch::CPU);
+    group_impl[group_id] = std::make_tuple(OpImpl::REF, TargetArch::CPU);
     return groups.size() - 1;
 }
 
