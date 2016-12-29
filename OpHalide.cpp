@@ -1,5 +1,64 @@
 #include "OpHalide.h"
 
+Buffer<> get_halide_buffer(NDArray_t& arr,
+                           const std::vector<int>& sizes,
+                           DataType type) {
+    switch(type) {
+        case DataType::Float64:
+            //NDArray<double>& buf = get_ndarray<double>(arr);
+            //return Buffer<double>(buf.host_alloc.get(), sizes);
+            assert(0);
+            break;
+        case DataType::Float32:
+            {
+                NDArray<float>& buf = get_ndarray<float>(arr);
+                return Buffer<float>(buf.host_alloc.get(), sizes);
+            }
+        case DataType::Int64:
+            {
+                NDArray<int64_t>& buf = get_ndarray<int64_t>(arr);
+                return Buffer<int64_t>(buf.host_alloc.get(), sizes);
+            }
+        case DataType::Int32:
+            {
+                NDArray<int32_t>& buf = get_ndarray<int32_t>(arr);
+                return Buffer<int32_t>(buf.host_alloc.get(), sizes);
+            }
+        case DataType::Int16:
+            {
+                NDArray<int16_t>& buf = get_ndarray<int16_t>(arr);
+                return Buffer<int16_t>(buf.host_alloc.get(), sizes);
+            }
+        case DataType::Int8:
+            {
+                NDArray<int8_t>& buf = get_ndarray<int8_t>(arr);
+                return Buffer<int8_t>(buf.host_alloc.get(), sizes);
+            }
+        case DataType::UInt64:
+            {
+                NDArray<uint64_t>& buf = get_ndarray<uint64_t>(arr);
+                return Buffer<uint64_t>(buf.host_alloc.get(), sizes);
+            }
+        case DataType::UInt32:
+            {
+                NDArray<uint32_t>& buf = get_ndarray<uint32_t>(arr);
+                return Buffer<uint32_t>(buf.host_alloc.get(), sizes);
+            }
+        case DataType::UInt16:
+            {
+                NDArray<uint16_t>& buf = get_ndarray<uint16_t>(arr);
+                return Buffer<uint16_t>(buf.host_alloc.get(), sizes);
+            }
+        case DataType::UInt8:
+            {
+                NDArray<uint8_t>& buf = get_ndarray<uint8_t>(arr);
+                return Buffer<uint8_t>(buf.host_alloc.get(), sizes);
+            }
+            assert(0);
+    }
+    return Buffer<>();
+}
+
 // Sanity check to make sure the halide function is defined.
 void check_defined(Func f)
 {
@@ -282,10 +341,10 @@ void concat_forward_halide(std::string name,
 }
 
 void flatten_forward_halide(std::string name,
-                           std::shared_ptr<FlattenOp> op,
-                           Func input,
-                           std::shared_ptr<OpHalideImpl> op_impl,
-                           TargetArch arch)
+                            std::shared_ptr<FlattenOp> op,
+                            Func input,
+                            std::shared_ptr<OpHalideImpl> op_impl,
+                            TargetArch arch)
 {
     check_defined(input);
     Func forward(name + "_forward");
@@ -313,10 +372,10 @@ void flatten_forward_halide(std::string name,
 }
 
 void data_forward_halide(std::string name,
-                           std::shared_ptr<DataOp> op,
-                           Func input,
-                           std::shared_ptr<OpHalideImpl> op_impl,
-                           TargetArch arch) {
+                         std::shared_ptr<DataOp> op,
+                         Func input,
+                         std::shared_ptr<OpHalideImpl> op_impl,
+                         TargetArch arch) {
     Var x, y, z, n;
     Func forward(name + "_forward");
     forward(x, y, z, n) = input(x, y, z, n);

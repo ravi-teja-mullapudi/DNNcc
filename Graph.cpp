@@ -26,7 +26,7 @@ int Graph::num_groups() {
 }
 
 void Graph::add_op(std::string name, std::shared_ptr<Op> op, int group_id) {
-    assert(group_id < (int) groups.size());
+    assert(group_id == (int)groups.size() - 1);
     for (size_t g = 0; g < groups.size(); g++) {
         assert(groups[g].find(name) == groups[g].end());
     }
@@ -35,21 +35,18 @@ void Graph::add_op(std::string name, std::shared_ptr<Op> op, int group_id) {
     op_name_map[op] = name;
 }
 
-void Graph::build_forward_halide(unsigned int group_id,
-                                 const std::vector<std::string>& order,
-                                 const std::vector<std::string>& group_ins,
-                                 const std::vector<std::string>& group_outs) {
+void Graph::build_forward_halide(unsigned int group_id) {
 
     halide_op_ins[group_id] = std::map<std::string, ImageParam>();
     TargetArch arch = std::get<1>(group_impl[group_id]);
 
-    for (auto &in: group_ins) {
+    for (auto &in: group_ins[group_id]) {
         assert(groups[group_id][in]->num_dims() <= 4);
         halide_op_ins[group_id][in] =
             ImageParam(Float(32), groups[group_id][in]->num_dims());
     }
 
-    for (auto &op_name: order) {
+    for (auto &op_name: order[group_id]) {
         auto op = groups[group_id][op_name];
         std::vector<Func> ins;
         for (size_t in = 0; in < op->input_ops.size(); in++) {
@@ -139,31 +136,28 @@ void Graph::build_forward_halide(unsigned int group_id,
     }
 
     std::vector<Func> outs;
-    for (auto &out_name: group_outs) {
+
+    for (auto &out_name: group_outs[group_id]) {
         auto op = groups[group_id][out_name];
-        switch(op->num_dims()) {
-            case 1:
-                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(0)));
-                break;
-            case 2:
-                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(1),
-                                                                 op->out_size(0)));
-                break;
-            case 3:
-                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(2),
-                                                                 op->out_size(1),
-                                                                 op->out_size(0)));
-                break;
-            case 4:
-                halide_op_outs[group_id].push_back(Buffer<float>(op->out_size(3),
-                                                                 op->out_size(2),
-                                                                 op->out_size(1),
-                                                                 op->out_size(0)));
-                break;
-            default:
-                std::cerr << "Halide currently only supports 4d buffers." <<
-                std::endl;
+        std::vector<int> buf_sizes;
+        for (int d = 0; d < op->num_dims(); d++) {
+            buf_sizes.push_back(op->out_size(d));
         }
+        op_outs[out_name] = get_ndarray_t(buf_sizes, op->type);
+    }
+
+    for (auto &out_name: group_outs[group_id]) {
+        auto op = groups[group_id][out_name];
+        std::vector<int> buf_sizes;
+        for (int d = op->num_dims() - 1; d >= 0; d--) {
+            buf_sizes.push_back(op->out_size(d));
+        }
+        assert(op->num_dims() <= 4);
+        // TODO: Not very certain about what happens when you copy Halide
+        // Buffers around. Need to test this.
+        halide_op_outs[out_name] = get_halide_buffer(op_outs[out_name],
+                                                     buf_sizes,
+                                                     op->type);
         outs.push_back(halide_ops[out_name]->output);
     }
 
@@ -178,16 +172,12 @@ void Graph::build_forward_halide(unsigned int group_id,
     halide_pipelines[group_id].compile_jit(target);
 }
 
-void Graph::build_forward_ref(unsigned int group_id,
-                              const std::vector<std::string>& order,
-                              const std::vector<std::string>& group_ins,
-                              const std::vector<std::string>& group_outs) {
+void Graph::build_forward_ref(unsigned int group_id) {
 }
 
 void Graph::build_forward_group(unsigned int group_id,
                                 const std::vector<std::string>& output_ops) {
     OpImpl impl = std::get<0>(group_impl[group_id]);
-    std::vector<std::string> order, group_ins, group_outs;
     std::map<std::string, int> num_prods;
 
     // Find a valid execution order for the ops.
@@ -212,7 +202,7 @@ void Graph::build_forward_group(unsigned int group_id,
     // Get the input ops for the group.
     for (auto &dep: num_prods) {
         if (dep.second == 0) {
-            group_ins.push_back(dep.first);
+            group_ins[group_id].push_back(dep.first);
         }
     }
 
@@ -233,13 +223,13 @@ void Graph::build_forward_group(unsigned int group_id,
         }
 
         if (used_outside_group) {
-            group_outs.push_back(op.first);
+            group_outs[group_id].push_back(op.first);
         }
     }
 
     for (auto &op: output_ops) {
         if (groups[group_id].find(op) != groups[group_id].end()) {
-            group_outs.push_back(op);
+            group_outs[group_id].push_back(op);
         }
     }
 
@@ -252,7 +242,7 @@ void Graph::build_forward_group(unsigned int group_id,
         }
 
         num_prods.erase(curr_op);
-        order.push_back(curr_op);
+        order[group_id].push_back(curr_op);
 
         for (auto &op: groups[group_id]) {
             for (auto &in_op: op.second->input_ops) {
@@ -265,9 +255,9 @@ void Graph::build_forward_group(unsigned int group_id,
 
     if (impl == OpImpl::REF) {
         // Create input and output buffers for each op.
-        build_forward_ref(group_id, order, group_ins, group_outs);
+        build_forward_ref(group_id);
     } else if (impl == OpImpl::HALIDE) {
-        build_forward_halide(group_id, order, group_ins, group_outs);
+        build_forward_halide(group_id);
     } else {
         // TODO: Other implementations.
         assert(0);
@@ -288,6 +278,125 @@ void Graph::display_ops() {
     for (size_t i = 0; i < groups.size(); i++) {
         for (auto &op: groups[i]) {
             std::cout << op.first << std::endl;
+        }
+    }
+}
+
+void set_halide_group_inputs(unsigned int group_id) {
+    // TODO: Handle GPU -> CPU transfers when needed
+}
+
+std::map<std::string, NDArray_t>
+Graph::run(std::map<std::string, NDArray_t>& inputs) {
+    // Run each group in the graph
+    for (size_t g = 0; g < groups.size(); g++) {
+        OpImpl impl = std::get<0>(group_impl[g]);
+        if (impl == OpImpl::HALIDE) {
+            // Set the Halide input buffers from corresponding NDArray buffers
+        } else if (impl == OpImpl::REF) {
+            for (auto &op_name: order[g]) {
+                auto op = groups[g][op_name];
+                if (std::dynamic_pointer_cast<AffineOp>(op) != nullptr) {
+
+                    auto in_op_name = op_name_map[op->input_ops[0]];
+                    auto op_cast = std::dynamic_pointer_cast<AffineOp>(op);
+                    NDArray<float>& op_in =
+                        get_ndarray<float>(op_outs[in_op_name]);
+                    NDArray<float>& op_out =
+                        get_ndarray<float>(op_outs[op_name]);
+                    affine_forward_ref(op_cast, op_in, op_out);
+
+                } else if (std::dynamic_pointer_cast<Conv2dOp>(op) != nullptr) {
+
+                    auto in_op_name = op_name_map[op->input_ops[0]];
+                    auto op_cast = std::dynamic_pointer_cast<Conv2dOp>(op);
+                    NDArray<float>& op_in =
+                        get_ndarray<float>(op_outs[in_op_name]);
+                    NDArray<float>& op_out =
+                        get_ndarray<float>(op_outs[op_name]);
+                    conv2d_forward_ref(op_cast, op_in, op_out);
+
+                } else if (std::dynamic_pointer_cast<Pool2dOp>(op) != nullptr) {
+
+                    auto in_op_name = op_name_map[op->input_ops[0]];
+                    auto op_cast = std::dynamic_pointer_cast<Pool2dOp>(op);
+                    NDArray<float>& op_in =
+                        get_ndarray<float>(op_outs[in_op_name]);
+                    NDArray<float>& op_out =
+                        get_ndarray<float>(op_outs[op_name]);
+                    pool2d_forward_ref(op_cast, op_in, op_out);
+
+                } else if (std::dynamic_pointer_cast<ReLUOp>(op) != nullptr) {
+
+                    auto in_op_name = op_name_map[op->input_ops[0]];
+                    auto op_cast = std::dynamic_pointer_cast<ReLUOp>(op);
+                    NDArray<float>& op_in =
+                        get_ndarray<float>(op_outs[in_op_name]);
+                    NDArray<float>& op_out =
+                        get_ndarray<float>(op_outs[op_name]);
+                    relu_forward_ref(op_cast, op_in, op_out);
+
+                } else if (std::dynamic_pointer_cast<SoftMaxOp>(op) != nullptr) {
+
+                    auto in_op_name = op_name_map[op->input_ops[0]];
+                    auto op_cast = std::dynamic_pointer_cast<SoftMaxOp>(op);
+                    NDArray<float>& op_in =
+                        get_ndarray<float>(op_outs[in_op_name]);
+                    NDArray<float>& op_out =
+                        get_ndarray<float>(op_outs[op_name]);
+                    softmax_forward_ref(op_cast, op_in, op_out);
+
+                } else if (std::dynamic_pointer_cast<LRNOp>(op) != nullptr) {
+
+                    auto in_op_name = op_name_map[op->input_ops[0]];
+                    auto op_cast = std::dynamic_pointer_cast<LRNOp>(op);
+                    NDArray<float>& op_in =
+                        get_ndarray<float>(op_outs[in_op_name]);
+                    NDArray<float>& op_out =
+                        get_ndarray<float>(op_outs[op_name]);
+                    lrn_forward_ref(op_cast, op_in, op_out);
+
+                } else if (std::dynamic_pointer_cast<ConcatOp>(op) != nullptr) {
+
+                    auto op_cast = std::dynamic_pointer_cast<ConcatOp>(op);
+                    std::vector<NDArray<float>> op_ins;
+                    for (size_t in = 0; in < op->input_ops.size(); in++) {
+                        auto in_op_name = op_name_map[op->input_ops[in]];
+                        op_ins.push_back(get_ndarray<float>(op_outs[in_op_name]));
+                    }
+
+                    NDArray<float>& op_out =
+                        get_ndarray<float>(op_outs[op_name]);
+
+                    concat_forward_ref(op_cast, op_ins, op_out);
+
+                } else if (std::dynamic_pointer_cast<FlattenOp>(op) != nullptr) {
+
+                    auto in_op_name = op_name_map[op->input_ops[0]];
+                    auto op_cast = std::dynamic_pointer_cast<FlattenOp>(op);
+                    NDArray<float>& op_in =
+                        get_ndarray<float>(op_outs[in_op_name]);
+                    NDArray<float>& op_out =
+                        get_ndarray<float>(op_outs[op_name]);
+                    flatten_forward_ref(op_cast, op_in, op_out);
+
+                } else if (std::dynamic_pointer_cast<DataOp>(op) != nullptr) {
+
+                    auto in_op_name = op_name_map[op->input_ops[0]];
+                    auto op_cast = std::dynamic_pointer_cast<DataOp>(op);
+                    NDArray<float>& op_in =
+                        get_ndarray<float>(inputs[in_op_name]);
+                    NDArray<float>& op_out =
+                        get_ndarray<float>(op_outs[op_name]);
+                    data_forward_ref(op_cast, op_in, op_out);
+
+                } else {
+                    // Unknown op.
+                    assert(0);
+                }
+            }
+        } else {
+            assert(0);
         }
     }
 }

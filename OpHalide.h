@@ -75,3 +75,7 @@ void data_forward_halide(std::string name,
                          Func input,
                          std::shared_ptr<OpHalideImpl> op_impl,
                          TargetArch arch);
+
+Buffer<> get_halide_buffer(NDArray_t& arr,
+                           const std::vector<int>& sizes,
+                           DataType type);

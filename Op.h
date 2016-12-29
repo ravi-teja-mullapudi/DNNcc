@@ -12,10 +12,13 @@ class Op {
     std::vector<std::shared_ptr<Op>> input_ops;
 
     // Ordered list of learnable parameters of the op.
-    std::vector<NDArray<float>> params;
+    std::vector<NDArray_t> params;
 
     // Ordered list of parameter gradients of the op.
-    std::vector<NDArray<float>> param_grads;
+    std::vector<NDArray_t> param_grads;
+
+    // Data type of params, inputs, and output of the op.
+    DataType type;
 
     Op() {}
 
@@ -281,4 +284,6 @@ class DataOp: public Op {
            int _input_channels,
            int _input_height,
            int _input_width);
-  };
+};
+
+NDArray_t get_ndarray_t(const std::vector<int>& sizes, DataType type);

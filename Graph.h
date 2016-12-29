@@ -6,6 +6,7 @@
 #include <iostream>
 #include "ModelIO.h"
 #include "Op.h"
+#include "OpRef.h"
 #include "OpImpl.h"
 #include "OpHalide.h"
 
@@ -18,9 +19,15 @@ class Graph {
 
     // TODO: consolidate into a class
     std::map<std::string, std::shared_ptr<OpHalideImpl>> halide_ops;
-    std::map<int, std::map<std::string, ImageParam>> halide_op_ins;
-    std::map<int, std::vector<Buffer<>>> halide_op_outs;
     std::map<int, Pipeline> halide_pipelines;
+    std::map<int, std::map<std::string, ImageParam>> halide_op_ins;
+
+    std::map<std::string, Buffer<>> halide_op_outs;
+    std::map<std::string, NDArray_t> op_outs;
+
+    std::map<int, std::vector<std::string>> order;
+    std::map<int, std::vector<std::string>> group_ins;
+    std::map<int, std::vector<std::string>> group_outs;
 
     Graph() {}
 
@@ -40,20 +47,17 @@ class Graph {
 
     void check();
 
-    void build_forward_halide(unsigned int group_id,
-                              const std::vector<std::string>& order,
-                              const std::vector<std::string>& group_ins,
-                              const std::vector<std::string>& group_outs);
+    void build_forward_halide(unsigned int group_id);
 
-    void build_forward_ref(unsigned int group_id,
-                           const std::vector<std::string>& order,
-                           const std::vector<std::string>& group_ins,
-                           const std::vector<std::string>& group_outs);
+    void build_forward_ref(unsigned int group_id);
 
     void build_forward_group(unsigned int group_id,
                              const std::vector<std::string>& output_ops);
 
     void build_forward(const std::vector<std::string>& output_ops);
+
+    std::map<std::string, NDArray_t>
+        run(std::map<std::string, NDArray_t>& inputs);
 
     void display_ops();
 };

@@ -23,8 +23,8 @@ void conv2d_forward_ref(std::shared_ptr<Conv2dOp> op,
     int output_height = op->output_height;
     int output_width = op->output_width;
 
-    NDArray<float>& weights = op->params[0];
-    NDArray<float>& bias = op->params[1];
+    NDArray<float>& weights = get_ndarray<float>(op->params[0]);
+    NDArray<float>& bias = get_ndarray<float>(op->params[1]);
 
     for (int b = 0; b < batch_size; b++) {
         for(int out_c = 0; out_c < output_channels; out_c++) {

@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <cassert>
+#include "boost/variant.hpp"
 
 // TODO
 // 1) Handle multiple devices
@@ -12,7 +13,6 @@ template <class T>
 class NDArray {
     public:
     std::shared_ptr<T> host_alloc;
-
     std::vector<int> dim_sizes;
     size_t buf_size;
 
@@ -102,4 +102,33 @@ class NDArray {
                      d2 * dim_sizes[2] * dim_sizes[3] + d3 * dim_sizes[3] + d4;
         return host_alloc.get()[offset];
     }
+};
+
+using NDArray_t = boost::variant<NDArray<double>,
+                                 NDArray<float>,
+                                 NDArray<int64_t>,
+                                 NDArray<int32_t>,
+                                 NDArray<int16_t>,
+                                 NDArray<int8_t>,
+                                 NDArray<uint64_t>,
+                                 NDArray<uint32_t>,
+                                 NDArray<uint16_t>,
+                                 NDArray<uint8_t>>;
+
+template <class T>
+NDArray<T>& get_ndarray(NDArray_t& arr) {
+    return boost::get<NDArray<T>>(arr);
+}
+
+enum DataType {
+    Float64,
+    Float32,
+    Int64,
+    Int32,
+    Int16,
+    Int8,
+    UInt64,
+    UInt32,
+    UInt16,
+    UInt8
 };

@@ -2,6 +2,9 @@
 #include <fstream>
 #include "ModelIO.h"
 
+// TODO: Current assumption is all the parameters are of type float.
+// This has to change going forward.
+// TODO: Document the serialization format
 void save_model_to_disk(std::string weight_file_name, Params &params) {
     std::ofstream ofs;
     ofs.open(weight_file_name, std::ofstream::out | std::ofstream::trunc |
@@ -18,7 +21,7 @@ void save_model_to_disk(std::string weight_file_name, Params &params) {
         ofs.write(reinterpret_cast<char*>(&num_params), sizeof(num_params));
 
         for (size_t i = 0; i < w.second.size(); i++) {
-            NDArray<float> param = w.second[i];
+            NDArray<float> param = get_ndarray<float>(w.second[i]);
             int dims = param.dimensions();
             ofs.write(reinterpret_cast<char*>(&dims), sizeof(dims));
             switch (param.dimensions()) {
