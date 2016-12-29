@@ -31,20 +31,20 @@ int main() {
     input.copy_to_device();
 
     LaunchConfig l = get_tile_launch_config({8, 8},
-                                {input.strides[0], input.strides[1]});
+                                {input.dim_sizes[0], input.dim_sizes[1]});
 
     double time = benchmark(1, 1, [&]() {
     copy_test<<<l.block_config, l.thread_config>>>(input.dev_alloc.get(),
-                                                   input.strides[0],
-                                                   input.strides[1],
+                                                   input.dim_sizes[0],
+                                                   input.dim_sizes[1],
                                                    output.dev_alloc.get());
     });
 
     std::cout << "Time: " << time << "ms" << std::endl;
     output.copy_from_device();
 
-    for (int x = 0; x < input.strides[0];  x++) {
-        for (int y = 0; y < input.strides[1]; y++) {
+    for (int x = 0; x < input.dim_sizes[0];  x++) {
+        for (int y = 0; y < input.dim_sizes[1]; y++) {
             if (output(x, y) != input(x, y)) {
                 std::cerr << "Test failed" << std::endl;
                 exit(-1);
