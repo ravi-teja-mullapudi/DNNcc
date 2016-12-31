@@ -1,9 +1,16 @@
 CXX ?= g++
 CXXFLAGS += -g -Wall -std=c++11 -rdynamic
 
+CAFFE_PATH = ../intel_caffe/caffe/distribute
+
 HALIDE_PATH = /home/ravi/Halide
 HALIDE_INC += -I$(HALIDE_PATH)/include -I$(HALIDE_PATH)/tools
 HALIDE_LIB += -L$(HALIDE_PATH)/bin -lHalide
+
+CAFFE_INC += -I$(CAFFE_PATH)/include -I/usr/local/cuda/include/
+CAFFE_LIB += -L$(CAFFE_PATH)/lib -lcaffe -lglog
+
+BOOST_LIB += -lboost_system
 
 all: classify
 
@@ -26,6 +33,13 @@ classify: ImagenetClassification.cpp networks/Vgg.h graph.o op.o halide_op.o ref
 	$(CXX) $(CXXFLAGS) ImagenetClassification.cpp graph.o ref_op.o op.o halide_op.o $(HALIDE_INC) \
 					   -I./ $(HALIDE_LIB) -o classify
 
+load_caffe_params.o: LoadCaffeParams.cpp LoadCaffeParams.h ModelIO.h
+	$(CXX) $(CXXFLAGS) LoadCaffeParams.cpp -c $(CAFFE_INC) $(CAFFE_LIB) -o load_caffe_params.o
+
+caffe_convert: ConvertCaffeModel.cpp load_caffe_params.o modelio.o
+	$(CXX) $(CXXFLAGS) ConvertCaffeModel.cpp load_caffe_params.o modelio.o $(CAFFE_LIB) $(BOOST_LIB)\
+					   -o caffe_convert
+
 test_ref: tests/RefGraphTest.cpp graph.o op.o halide_op.o ref_op.o Utils.h
 	$(CXX) $(CXXFLAGS) tests/RefGraphTest.cpp graph.o ref_op.o op.o halide_op.o $(HALIDE_INC) \
 					   -I./ $(HALIDE_LIB) -o test_ref
@@ -35,4 +49,5 @@ test_halide: tests/HalideGraphTest.cpp graph.o op.o halide_op.o ref_op.o Utils.h
 					   -I./ $(HALIDE_LIB) -o test_halide
 
 clean:
-	rm -rf modelio.o graph.o op.o halide_op.o ref_op.o classify test_ref test_halide
+	rm -rf modelio.o graph.o op.o halide_op.o ref_op.o load_caffe_params.o \
+		   classify caffe_convert test_ref test_halide
