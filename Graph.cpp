@@ -12,14 +12,13 @@ void Graph::set_params(Params& params) {
                         Buffer<> buf =
                             get_halide_buffer(params[op.first][p],
                                               op.second->type);
-                        halide_ops[op.first];
+                        halide_ops[op.first]->params[p].set(buf);
                     }
                 }
             }
         }
     }
 }
-
 void Graph::get_params(Params &params) {
     // Not implemented yet
     assert(0);
