@@ -26,9 +26,13 @@ classify: ImagenetClassification.cpp networks/Vgg.h graph.o op.o halide_op.o ref
 	$(CXX) $(CXXFLAGS) ImagenetClassification.cpp graph.o ref_op.o op.o halide_op.o $(HALIDE_INC) \
 					   -I./ $(HALIDE_LIB) -o classify
 
-test_ref: tests/RefGraphTest.cpp graph.o op.o halide_op.o ref_op.o
+test_ref: tests/RefGraphTest.cpp graph.o op.o halide_op.o ref_op.o Utils.h
 	$(CXX) $(CXXFLAGS) tests/RefGraphTest.cpp graph.o ref_op.o op.o halide_op.o $(HALIDE_INC) \
 					   -I./ $(HALIDE_LIB) -o test_ref
 
+test_halide: tests/HalideGraphTest.cpp graph.o op.o halide_op.o ref_op.o Utils.h
+	$(CXX) $(CXXFLAGS) tests/HalideGraphTest.cpp graph.o ref_op.o op.o halide_op.o $(HALIDE_INC) \
+					   -I./ $(HALIDE_LIB) -o test_halide
+
 clean:
-	rm -rf modelio.o graph.o op.o halide_op.o ref_op.o classify test_ref
+	rm -rf modelio.o graph.o op.o halide_op.o ref_op.o classify test_ref test_halide

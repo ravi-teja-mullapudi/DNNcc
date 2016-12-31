@@ -1,7 +1,6 @@
 #include "OpHalide.h"
 
 Buffer<> get_halide_buffer(NDArray_t& arr,
-                           const std::vector<int>& sizes,
                            DataType type) {
     switch(type) {
         case DataType::Float64:
@@ -12,47 +11,47 @@ Buffer<> get_halide_buffer(NDArray_t& arr,
         case DataType::Float32:
             {
                 NDArray<float>& buf = get_ndarray<float>(arr);
-                return Buffer<float>(buf.host_alloc.get(), sizes);
+                return Buffer<float>(buf.host_alloc.get(), buf.dim_sizes);
             }
         case DataType::Int64:
             {
                 NDArray<int64_t>& buf = get_ndarray<int64_t>(arr);
-                return Buffer<int64_t>(buf.host_alloc.get(), sizes);
+                return Buffer<int64_t>(buf.host_alloc.get(), buf.dim_sizes);
             }
         case DataType::Int32:
             {
                 NDArray<int32_t>& buf = get_ndarray<int32_t>(arr);
-                return Buffer<int32_t>(buf.host_alloc.get(), sizes);
+                return Buffer<int32_t>(buf.host_alloc.get(), buf.dim_sizes);
             }
         case DataType::Int16:
             {
                 NDArray<int16_t>& buf = get_ndarray<int16_t>(arr);
-                return Buffer<int16_t>(buf.host_alloc.get(), sizes);
+                return Buffer<int16_t>(buf.host_alloc.get(), buf.dim_sizes);
             }
         case DataType::Int8:
             {
                 NDArray<int8_t>& buf = get_ndarray<int8_t>(arr);
-                return Buffer<int8_t>(buf.host_alloc.get(), sizes);
+                return Buffer<int8_t>(buf.host_alloc.get(), buf.dim_sizes);
             }
         case DataType::UInt64:
             {
                 NDArray<uint64_t>& buf = get_ndarray<uint64_t>(arr);
-                return Buffer<uint64_t>(buf.host_alloc.get(), sizes);
+                return Buffer<uint64_t>(buf.host_alloc.get(), buf.dim_sizes);
             }
         case DataType::UInt32:
             {
                 NDArray<uint32_t>& buf = get_ndarray<uint32_t>(arr);
-                return Buffer<uint32_t>(buf.host_alloc.get(), sizes);
+                return Buffer<uint32_t>(buf.host_alloc.get(), buf.dim_sizes);
             }
         case DataType::UInt16:
             {
                 NDArray<uint16_t>& buf = get_ndarray<uint16_t>(arr);
-                return Buffer<uint16_t>(buf.host_alloc.get(), sizes);
+                return Buffer<uint16_t>(buf.host_alloc.get(), buf.dim_sizes);
             }
         case DataType::UInt8:
             {
                 NDArray<uint8_t>& buf = get_ndarray<uint8_t>(arr);
-                return Buffer<uint8_t>(buf.host_alloc.get(), sizes);
+                return Buffer<uint8_t>(buf.host_alloc.get(), buf.dim_sizes);
             }
             assert(0);
     }
@@ -378,7 +377,63 @@ void data_forward_halide(std::string name,
                          TargetArch arch) {
     Var x, y, z, n;
     Func forward(name + "_forward");
-    forward(x, y, z, n) = input(x, y, z, n);
+    switch(op->num_dims()) {
+        case 1:
+            forward(x) = input(x);
+            break;
+        case 2:
+            forward(x, y) = input(x, y);
+            break;
+        case 3:
+            forward(x, y, z) = input(x, y, z);
+            break;
+        case 4:
+            forward(x, y, z, n) = input(x, y, z, n);
+            break;
+        default:
+            assert(0);
+    }
+
+    op_impl->output = forward;
+}
+
+void sum_forward_halide(std::string name,
+                        std::shared_ptr<SumOp> op,
+                        std::vector<Func> inputs,
+                        std::shared_ptr<OpHalideImpl> op_impl,
+                        TargetArch arch) {
+    Var x, y, z, n;
+    Func forward(name + "_forward");
+    std::vector<Var> vars;
+    switch(op->num_dims()) {
+        case 1:
+            vars.push_back(x);
+            break;
+        case 2:
+            vars.push_back(x);
+            vars.push_back(y);
+            break;
+        case 3:
+            vars.push_back(x);
+            vars.push_back(y);
+            vars.push_back(z);
+            break;
+        case 4:
+            vars.push_back(x);
+            vars.push_back(y);
+            vars.push_back(z);
+            vars.push_back(n);
+            break;
+        default:
+            assert(0);
+    }
+
+    Expr s = inputs[0](vars);
+    for (size_t i = 1; i < inputs.size(); i++) {
+        s = s + inputs[i](vars);
+    }
+
+    forward(x) = s;
 
     op_impl->output = forward;
 }

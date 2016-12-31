@@ -179,18 +179,12 @@ FlattenOp::FlattenOp(std::shared_ptr<Op> _input_op)
     type = DataType::Float32;
 }
 
-DataOp::DataOp(int _batch_size,
-               int _input_channels,
-               int _input_height,
-               int _input_width)
+DataOp::DataOp(const std::vector<int>& _dim_sizes)
                : Op(),
-                 batch_size(_batch_size),
-                 input_channels(_input_channels),
-                 input_height(_input_height),
-                 input_width(_input_width) {
+                 dim_sizes(_dim_sizes) {
 
     type = DataType::Float32;
-};
+}
 
 SumOp::SumOp(const std::vector<int>& _dim_sizes,
              std::vector<std::shared_ptr<Op>>& _input_ops)

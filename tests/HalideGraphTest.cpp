@@ -9,6 +9,9 @@ void test_data() {
     auto data = std::make_shared<DataOp>(data_sizes);
 
     g.add_op("data", data, group_id);
+
+    g.group_impl[group_id] = std::make_tuple(OpImpl::HALIDE, TargetArch::CPU);
+
     g.build_forward({"data"});
 
     g.display_ops();
@@ -36,6 +39,8 @@ void test_sum() {
     std::vector<std::shared_ptr<Op>> sum_ins = {data1, data2};
     auto sum = std::make_shared<SumOp>(data_sizes, sum_ins);
     g.add_op("sum", sum, group_id);
+
+    g.group_impl[group_id] = std::make_tuple(OpImpl::HALIDE, TargetArch::CPU);
 
     g.build_forward({"sum"});
 

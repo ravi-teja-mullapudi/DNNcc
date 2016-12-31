@@ -258,32 +258,16 @@ class FlattenOp: public Op {
 
 class DataOp: public Op {
     public:
-    int batch_size;
-    int input_channels;
-    int input_height;
-    int input_width;
+    std::vector<int> dim_sizes;
 
-    int num_dims() { return 4; }
+    int num_dims() { return dim_sizes.size(); }
 
     int out_size(int dim_id) {
-        assert(dim_id < 4);
-        int size = 0;
-        if (dim_id == 0) {
-            size = batch_size;
-        } else if (dim_id == 1) {
-            size = input_channels;
-        } else if (dim_id == 2) {
-            size = input_height;
-        } else if (dim_id == 3) {
-            size = input_width;
-        }
-        return size;
+        assert(dim_id < (int)dim_sizes.size());
+        return dim_sizes[dim_id];
     }
 
-    DataOp(int _batch_size,
-           int _input_channels,
-           int _input_height,
-           int _input_width);
+    DataOp(const std::vector<int>& _dim_sizes);
 };
 
 class SumOp: public Op {

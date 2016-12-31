@@ -13,6 +13,7 @@
 class Graph {
     public:
     // TODO: consolidate into a class
+    std::map<std::string, std::shared_ptr<Op>> ops;
     std::vector<std::map<std::string, std::shared_ptr<Op>>> groups;
     std::map<std::shared_ptr<Op>, std::string> op_name_map;
     std::map<int, std::tuple<OpImpl, TargetArch>> group_impl;
@@ -22,7 +23,7 @@ class Graph {
     std::map<int, Pipeline> halide_pipelines;
     std::map<int, std::map<std::string, ImageParam>> halide_op_ins;
 
-    std::map<std::string, Buffer<>> halide_op_outs;
+    std::map<int, std::vector<Buffer<>>> halide_op_outs;
     std::map<std::string, NDArray_t> op_outs;
 
     std::map<int, std::vector<std::string>> order;
@@ -48,6 +49,9 @@ class Graph {
     void add_op(std::string name, std::shared_ptr<Op> op, int group_id);
 
     void check();
+
+    void set_halide_group_inputs(unsigned int group_id,
+                                 std::map<std::string, NDArray_t>& inputs);
 
     void build_forward_halide(unsigned int group_id);
 

@@ -166,6 +166,7 @@ template <typename T>
 void data_forward_ref(std::shared_ptr<DataOp> op,
                       NDArray<T>& input,
                       NDArray<T>& output) {
+    output.copy(input);
 }
 
 template

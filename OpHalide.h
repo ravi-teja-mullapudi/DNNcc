@@ -22,6 +22,12 @@ class OpHalideImpl {
     std::vector<Func> input_grads;
 };
 
+void sum_forward_halide(std::string name,
+                        std::shared_ptr<SumOp> op,
+                        std::vector<Func> inputs,
+                        std::shared_ptr<OpHalideImpl> op_impl,
+                        TargetArch arch);
+
 void affine_forward_halide(std::string name,
                            std::shared_ptr<AffineOp> op,
                            Func input,
@@ -76,6 +82,4 @@ void data_forward_halide(std::string name,
                          std::shared_ptr<OpHalideImpl> op_impl,
                          TargetArch arch);
 
-Buffer<> get_halide_buffer(NDArray_t& arr,
-                           const std::vector<int>& sizes,
-                           DataType type);
+Buffer<> get_halide_buffer(NDArray_t& arr, DataType type);

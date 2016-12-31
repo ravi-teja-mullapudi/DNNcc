@@ -27,6 +27,8 @@ int Graph::num_groups() {
 
 void Graph::add_op(std::string name, std::shared_ptr<Op> op, int group_id) {
     assert(group_id == (int)groups.size() - 1);
+    assert(ops.find(name) == ops.end());
+    ops[name] = op;
     for (size_t g = 0; g < groups.size(); g++) {
         assert(groups[g].find(name) == groups[g].end());
     }
@@ -64,7 +66,13 @@ void Graph::build_forward_halide(unsigned int group_id) {
 
         halide_ops[op_name] = std::make_shared<OpHalideImpl>();
 
-        if (std::dynamic_pointer_cast<AffineOp>(op) != nullptr) {
+        if (std::dynamic_pointer_cast<SumOp>(op) != nullptr) {
+
+            auto op_cast = std::dynamic_pointer_cast<SumOp>(op);
+            sum_forward_halide(op_name, op_cast, ins,
+                               halide_ops[op_name], arch);
+
+        } else if (std::dynamic_pointer_cast<AffineOp>(op) != nullptr) {
 
             assert(ins.size() == 1);
             auto op_cast = std::dynamic_pointer_cast<AffineOp>(op);
@@ -130,7 +138,7 @@ void Graph::build_forward_halide(unsigned int group_id) {
                                 halide_ops[op_name], arch);
 
         } else {
-            // Unknown op.
+            std::cerr << "Unknown op" << std::endl;
             assert(0);
         }
     }
@@ -148,16 +156,12 @@ void Graph::build_forward_halide(unsigned int group_id) {
 
     for (auto &out_name: group_outs[group_id]) {
         auto op = groups[group_id][out_name];
-        std::vector<int> buf_sizes;
-        for (int d = op->num_dims() - 1; d >= 0; d--) {
-            buf_sizes.push_back(op->out_size(d));
-        }
         assert(op->num_dims() <= 4);
         // TODO: Not very certain about what happens when you copy Halide
         // Buffers around. Need to test this.
-        halide_op_outs[out_name] = get_halide_buffer(op_outs[out_name],
-                                                     buf_sizes,
-                                                     op->type);
+        halide_op_outs[group_id].
+            push_back(get_halide_buffer(op_outs.at(out_name),
+                                        op->type));
         outs.push_back(halide_ops[out_name]->output);
     }
 
@@ -184,6 +188,7 @@ void Graph::build_forward_ref(unsigned int group_id) {
 
 void Graph::build_forward_group(unsigned int group_id,
                                 const std::vector<std::string>& output_ops) {
+
     OpImpl impl = std::get<0>(group_impl[group_id]);
     std::map<std::string, int> num_prods;
 
@@ -266,7 +271,7 @@ void Graph::build_forward_group(unsigned int group_id,
     } else if (impl == OpImpl::HALIDE) {
         build_forward_halide(group_id);
     } else {
-        // TODO: Other implementations.
+        std::cerr << "Unknown implementation" << std::endl;
         assert(0);
     }
 }
@@ -278,6 +283,7 @@ void Graph::check() {
 void Graph::build_forward(const std::vector<std::string>& output_ops) {
 
     for (auto &op: output_ops) {
+        assert(ops.find(op) != ops.end());
         graph_outs.push_back(op);
     }
 
@@ -294,8 +300,19 @@ void Graph::display_ops() {
     }
 }
 
-void set_halide_group_inputs(unsigned int group_id) {
+void Graph::set_halide_group_inputs(unsigned int group_id,
+                                    std::map<std::string, NDArray_t>& inputs) {
     // TODO: Handle GPU -> CPU transfers when needed
+   for (auto &in: halide_op_ins[group_id]) {
+       auto op_in = ops.at(in.first);
+       Buffer<> buf;
+       if (op_outs.find(in.first) != op_outs.end()) {
+           buf = get_halide_buffer(op_outs.at(in.first), op_in->type);
+       } else {
+           buf = get_halide_buffer(inputs.at(in.first), op_in->type);
+       }
+       in.second.set(buf);
+   }
 }
 
 std::map<std::string, NDArray_t>
@@ -305,6 +322,10 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
         OpImpl impl = std::get<0>(group_impl[g]);
         if (impl == OpImpl::HALIDE) {
             // Set the Halide input buffers from corresponding NDArray buffers
+            set_halide_group_inputs(g, inputs);
+            halide_pipelines[g].
+                realize(Realization(halide_op_outs.at(g)));
+
         } else if (impl == OpImpl::REF) {
             // TODO: Get rid of the giant switch case
             for (auto &op_name: order[g]) {
@@ -315,11 +336,11 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
                     std::vector<NDArray<float>> op_ins;
                     for (size_t in = 0; in < op->input_ops.size(); in++) {
                         auto in_op_name = op_name_map[op->input_ops[in]];
-                        op_ins.push_back(get_ndarray<float>(op_outs[in_op_name]));
+                        op_ins.push_back(get_ndarray<float>(op_outs.at(in_op_name)));
                     }
 
                     NDArray<float>& op_out =
-                        get_ndarray<float>(op_outs[op_name]);
+                        get_ndarray<float>(op_outs.at(op_name));
 
                     sum_forward_ref(op_cast, op_ins, op_out);
 
@@ -328,9 +349,9 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
                     auto in_op_name = op_name_map[op->input_ops[0]];
                     auto op_cast = std::dynamic_pointer_cast<AffineOp>(op);
                     NDArray<float>& op_in =
-                        get_ndarray<float>(op_outs[in_op_name]);
+                        get_ndarray<float>(op_outs.at(in_op_name));
                     NDArray<float>& op_out =
-                        get_ndarray<float>(op_outs[op_name]);
+                        get_ndarray<float>(op_outs.at(op_name));
                     affine_forward_ref(op_cast, op_in, op_out);
 
                 } else if (std::dynamic_pointer_cast<Conv2dOp>(op) != nullptr) {
@@ -338,9 +359,9 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
                     auto in_op_name = op_name_map[op->input_ops[0]];
                     auto op_cast = std::dynamic_pointer_cast<Conv2dOp>(op);
                     NDArray<float>& op_in =
-                        get_ndarray<float>(op_outs[in_op_name]);
+                        get_ndarray<float>(op_outs.at(in_op_name));
                     NDArray<float>& op_out =
-                        get_ndarray<float>(op_outs[op_name]);
+                        get_ndarray<float>(op_outs.at(op_name));
                     conv2d_forward_ref(op_cast, op_in, op_out);
 
                 } else if (std::dynamic_pointer_cast<Pool2dOp>(op) != nullptr) {
@@ -348,9 +369,9 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
                     auto in_op_name = op_name_map[op->input_ops[0]];
                     auto op_cast = std::dynamic_pointer_cast<Pool2dOp>(op);
                     NDArray<float>& op_in =
-                        get_ndarray<float>(op_outs[in_op_name]);
+                        get_ndarray<float>(op_outs.at(in_op_name));
                     NDArray<float>& op_out =
-                        get_ndarray<float>(op_outs[op_name]);
+                        get_ndarray<float>(op_outs.at(op_name));
                     pool2d_forward_ref(op_cast, op_in, op_out);
 
                 } else if (std::dynamic_pointer_cast<ReLUOp>(op) != nullptr) {
@@ -358,9 +379,9 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
                     auto in_op_name = op_name_map[op->input_ops[0]];
                     auto op_cast = std::dynamic_pointer_cast<ReLUOp>(op);
                     NDArray<float>& op_in =
-                        get_ndarray<float>(op_outs[in_op_name]);
+                        get_ndarray<float>(op_outs.at(in_op_name));
                     NDArray<float>& op_out =
-                        get_ndarray<float>(op_outs[op_name]);
+                        get_ndarray<float>(op_outs.at(op_name));
                     relu_forward_ref(op_cast, op_in, op_out);
 
                 } else if (std::dynamic_pointer_cast<SoftMaxOp>(op) != nullptr) {
@@ -368,9 +389,9 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
                     auto in_op_name = op_name_map[op->input_ops[0]];
                     auto op_cast = std::dynamic_pointer_cast<SoftMaxOp>(op);
                     NDArray<float>& op_in =
-                        get_ndarray<float>(op_outs[in_op_name]);
+                        get_ndarray<float>(op_outs.at(in_op_name));
                     NDArray<float>& op_out =
-                        get_ndarray<float>(op_outs[op_name]);
+                        get_ndarray<float>(op_outs.at(op_name));
                     softmax_forward_ref(op_cast, op_in, op_out);
 
                 } else if (std::dynamic_pointer_cast<LRNOp>(op) != nullptr) {
@@ -378,9 +399,9 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
                     auto in_op_name = op_name_map[op->input_ops[0]];
                     auto op_cast = std::dynamic_pointer_cast<LRNOp>(op);
                     NDArray<float>& op_in =
-                        get_ndarray<float>(op_outs[in_op_name]);
+                        get_ndarray<float>(op_outs.at(in_op_name));
                     NDArray<float>& op_out =
-                        get_ndarray<float>(op_outs[op_name]);
+                        get_ndarray<float>(op_outs.at(op_name));
                     lrn_forward_ref(op_cast, op_in, op_out);
 
                 } else if (std::dynamic_pointer_cast<ConcatOp>(op) != nullptr) {
@@ -389,11 +410,11 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
                     std::vector<NDArray<float>> op_ins;
                     for (size_t in = 0; in < op->input_ops.size(); in++) {
                         auto in_op_name = op_name_map[op->input_ops[in]];
-                        op_ins.push_back(get_ndarray<float>(op_outs[in_op_name]));
+                        op_ins.push_back(get_ndarray<float>(op_outs.at(in_op_name)));
                     }
 
                     NDArray<float>& op_out =
-                        get_ndarray<float>(op_outs[op_name]);
+                        get_ndarray<float>(op_outs.at(op_name));
 
                     concat_forward_ref(op_cast, op_ins, op_out);
 
@@ -402,35 +423,34 @@ Graph::run(std::map<std::string, NDArray_t>& inputs) {
                     auto in_op_name = op_name_map[op->input_ops[0]];
                     auto op_cast = std::dynamic_pointer_cast<FlattenOp>(op);
                     NDArray<float>& op_in =
-                        get_ndarray<float>(op_outs[in_op_name]);
+                        get_ndarray<float>(op_outs.at(in_op_name));
                     NDArray<float>& op_out =
-                        get_ndarray<float>(op_outs[op_name]);
+                        get_ndarray<float>(op_outs.at(op_name));
                     flatten_forward_ref(op_cast, op_in, op_out);
 
                 } else if (std::dynamic_pointer_cast<DataOp>(op) != nullptr) {
 
-                    auto in_op_name = op_name_map[op->input_ops[0]];
                     auto op_cast = std::dynamic_pointer_cast<DataOp>(op);
                     NDArray<float>& op_in =
-                        get_ndarray<float>(inputs[in_op_name]);
+                        get_ndarray<float>(inputs.at(op_name));
                     NDArray<float>& op_out =
-                        get_ndarray<float>(op_outs[op_name]);
+                        get_ndarray<float>(op_outs.at(op_name));
                     data_forward_ref(op_cast, op_in, op_out);
 
                 } else {
-                    // Unknown op.
+                    std::cerr << "Unknown op" << std::endl;
                     assert(0);
                 }
             }
         } else {
+            std::cerr << "Unknown implementation" << std::endl;
             assert(0);
         }
     }
 
     std::map<std::string, NDArray_t> outputs;
     for (auto &op: graph_outs) {
-        assert(op_outs.find(op) != op_outs.end());
-        outputs[op] = op_outs[op];
+        outputs[op] = op_outs.at(op);
     }
 
     return outputs;

@@ -103,6 +103,16 @@ class NDArray {
         return host_alloc.get()[offset];
     }
 
+    void copy(const NDArray<T>& other) {
+        for (size_t d = 0; d < dim_sizes.size(); d++) {
+            assert(dim_sizes[d] == other.dim_sizes[d]);
+        }
+        T* host_ptr = host_alloc.get();
+        for (size_t i = 0; i < buf_size; i++) {
+            host_ptr[i] = other.host_alloc.get()[i];
+        }
+    }
+
     /* Simple inplace arithmetic operations. */
     void add(const NDArray<T>& other) {
         for (size_t d = 0; d < dim_sizes.size(); d++) {
