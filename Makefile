@@ -1,7 +1,7 @@
 CXX ?= g++
 CXXFLAGS += -g -Wall -std=c++11 -rdynamic
 
-CAFFE_PATH = ../intel_caffe/caffe/distribute
+CAFFE_PATH = ../caffe/distribute
 
 HALIDE_PATH = /home/ravi/Halide
 HALIDE_INC += -I$(HALIDE_PATH)/include -I$(HALIDE_PATH)/tools

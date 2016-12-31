@@ -18,8 +18,9 @@ class Graph {
     std::map<std::shared_ptr<Op>, std::string> op_name_map;
     std::map<int, std::tuple<OpImpl, TargetArch>> group_impl;
 
-    // TODO: consolidate into a class
     std::map<std::string, std::shared_ptr<OpHalideImpl>> halide_ops;
+
+    // TODO: consolidate into a class
     std::map<int, Pipeline> halide_pipelines;
     std::map<int, std::map<std::string, ImageParam>> halide_op_ins;
 
@@ -37,11 +38,11 @@ class Graph {
     // Initialize the parameters of operations in the graph using the
     // values from params. The params are matched to ops by name and
     // the order in the op's param list.
-    void initialize_params(Params& params);
+    void set_params(Params& params);
 
     // Extract parameters from all the op's in the graph. The params are
     // stored by op name and the order in the op's param list.
-    void extract_params(Params& params);
+    void get_params(Params& params);
 
     int add_group();
     int num_groups();

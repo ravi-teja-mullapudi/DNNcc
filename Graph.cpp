@@ -1,16 +1,28 @@
 #include "Graph.h"
 
-void Graph::initialize_params(Params &params) {
+void Graph::set_params(Params& params) {
     for (size_t i = 0; i < groups.size(); i++) {
         for (auto &op: groups[i]) {
             if (op.second->params.size() > 0) {
                 assert(params[op.first].size() == op.second->params.size());
                 for (size_t p = 0; p < params[op.first].size(); p++) {
                     op.second->params[p] = params[op.first][p];
+                    OpImpl impl = std::get<0>(group_impl[i]);
+                    if (impl == OpImpl::HALIDE) {
+                        Buffer<> buf =
+                            get_halide_buffer(params[op.first][p],
+                                              op.second->type);
+                        halide_ops[op.first];
+                    }
                 }
             }
         }
     }
+}
+
+void Graph::get_params(Params &params) {
+    // Not implemented yet
+    assert(0);
 }
 
 int Graph::add_group() {

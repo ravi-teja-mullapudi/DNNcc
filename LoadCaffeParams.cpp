@@ -85,7 +85,7 @@ void load_params_caffe(char *first_arg,
     // Convert caffe blobs into Halide images and populate them
     // into the map of params
     for (size_t i = 0; i < net.layers().size(); i++) {
-        for (auto &b: (*net.layers()[i]).blobs()) {
+        for (auto &b: net.layers()[i]->blobs()) {
             params[net.layer_names()[i]].push_back(convert_blob_to_ndarray(*b));
         }
     }
