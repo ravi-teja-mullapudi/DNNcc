@@ -87,7 +87,10 @@ void save_model_to_disk(std::string weight_file_name, Params &params) {
 }
 
 void load_model_from_disk(std::string weight_file_name, Params &params) {
+
+    boost::filesystem::exists(weight_file_name);
     std::ifstream ifs;
+
     ifs.open(weight_file_name, std::ifstream::in | std::ofstream::binary);
 
     size_t num_params;

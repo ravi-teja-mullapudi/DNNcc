@@ -10,7 +10,7 @@ HALIDE_LIB += -L$(HALIDE_PATH)/bin -lHalide
 CAFFE_INC += -I$(CAFFE_PATH)/include -I/usr/local/cuda/include/
 CAFFE_LIB += -L$(CAFFE_PATH)/lib -lcaffe -lglog
 
-BOOST_LIB += -lboost_system
+BOOST_LIB += -lboost_system -lboost_filesystem
 
 all: classify
 
@@ -50,7 +50,7 @@ test_halide: tests/HalideGraphTest.cpp graph.o op.o halide_op.o ref_op.o Utils.h
 
 test_params: tests/ParamTest.cpp graph.o op.o halide_op.o modelio.o ref_op.o Utils.h networks/Vgg.h
 	$(CXX) $(CXXFLAGS) tests/ParamTest.cpp graph.o ref_op.o op.o modelio.o halide_op.o $(HALIDE_INC) \
-					   -I./ $(HALIDE_LIB) -o test_params
+					   -I./ $(HALIDE_LIB) $(BOOST_LIB) -o test_params
 
 clean:
 	rm -rf modelio.o graph.o op.o halide_op.o ref_op.o load_caffe_params.o \

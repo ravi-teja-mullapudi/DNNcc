@@ -1,5 +1,6 @@
 #include <string>
 #include <map>
+#include <boost/filesystem.hpp>
 #include "NDArray.h"
 
 typedef std::map<std::string, std::vector<NDArray_t>> Params;
