@@ -4,9 +4,7 @@ std::vector<int> get_buf_sizes(std::vector<int>& ndarray_sizes) {
     std::vector<int> halide_sizes;
     for (int i = ndarray_sizes.size() - 1; i >= 0; i--) {
         halide_sizes.push_back(ndarray_sizes[i]);
-        std::cout << ndarray_sizes[i] << ",";
     }
-    std::cout << std::endl;
     return halide_sizes;
 }
 
@@ -225,9 +223,9 @@ void pool2d_forward_halide(std::string name,
         forward(x, y, z, n) = stage(x, y, z, n);
     } else if (op->pool_type == PoolType::AVG) {
         stage(x, y, z, n) = 0.0f;
-        stage(x, y, z, n) = in_bound(x * stride_w + r.x - pad_w,
-                                     y * stride_h + r.y - pad_h,
-                                     z, n);
+        stage(x, y, z, n) += in_bound(x * stride_w + r.x - pad_w,
+                                      y * stride_h + r.y - pad_h,
+                                      z, n);
         forward(x, y, z, n) = stage(x, y, z, n)/(p_w * p_h);
     }
 
