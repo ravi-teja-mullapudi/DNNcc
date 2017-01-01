@@ -28,10 +28,10 @@ void Vgg16(Graph& g) {
 
     int group_id = g.add_group();
 
-    int batch_size(64), channels(3), data_height(224), data_width(224);
+    int batch_size(16), channels(3), data_height(224), data_width(224);
     auto data_sizes = {batch_size, channels, data_height, data_width};
     auto data = std::make_shared<DataOp>(data_sizes);
-    g.add_op("input", data, group_id);
+    g.add_op("data", data, group_id);
 
     int num_filters(64), filter_height(3), filter_width(3), stride(1);
 

@@ -156,10 +156,10 @@ void conv2d_forward_halide(std::string name,
     Var x, y, z, n;
     W_f(x, y, z, n) = W(x, y, z, n);
     stage(x, y, z, n) = b(z);
-    stage(x, y, z, n) = W_f(r.x, r.y, r.z, z) *
-                        in_bound(x * stride_w + r.x - pad_w,
-                                 y * stride_h + r.y - pad_h,
-                                 r.z, n);
+    stage(x, y, z, n) += W_f(r.x, r.y, r.z, z) *
+                         in_bound(x * stride_w + r.x - pad_w,
+                                  y * stride_h + r.y - pad_h,
+                                  r.z, n);
 
     forward(x, y, z, n) = stage(x, y, z, n);
 
