@@ -1,4 +1,5 @@
 #include "Op.h"
+#include<iostream>
 
 NDArray_t get_ndarray_t(const std::vector<int>& sizes, DataType type) {
 
@@ -37,7 +38,7 @@ AffineOp::AffineOp(int _num_units, std::shared_ptr<Op> _input_op)
     type = DataType::Float32;
 
     params.push_back(get_ndarray_t({num_units, num_inputs}, type));
-    params.push_back(get_ndarray_t({num_inputs}, type));
+    params.push_back(get_ndarray_t({num_units}, type));
     // TODO: Create buffers for gradients
 }
 

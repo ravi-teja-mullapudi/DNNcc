@@ -1,5 +1,15 @@
 #include "OpHalide.h"
 
+std::vector<int> get_buf_sizes(std::vector<int>& ndarray_sizes) {
+    std::vector<int> halide_sizes;
+    for (int i = ndarray_sizes.size() - 1; i >= 0; i--) {
+        halide_sizes.push_back(ndarray_sizes[i]);
+        std::cout << ndarray_sizes[i] << ",";
+    }
+    std::cout << std::endl;
+    return halide_sizes;
+}
+
 Buffer<> get_halide_buffer(NDArray_t& arr,
                            DataType type) {
     switch(type) {
@@ -11,47 +21,56 @@ Buffer<> get_halide_buffer(NDArray_t& arr,
         case DataType::Float32:
             {
                 NDArray<float>& buf = get_ndarray<float>(arr);
-                return Buffer<float>(buf.host_alloc.get(), buf.dim_sizes);
+                return Buffer<float>(buf.host_alloc.get(),
+                                     get_buf_sizes(buf.dim_sizes));
             }
         case DataType::Int64:
             {
                 NDArray<int64_t>& buf = get_ndarray<int64_t>(arr);
-                return Buffer<int64_t>(buf.host_alloc.get(), buf.dim_sizes);
+                return Buffer<int64_t>(buf.host_alloc.get(),
+                                       get_buf_sizes(buf.dim_sizes));
             }
         case DataType::Int32:
             {
                 NDArray<int32_t>& buf = get_ndarray<int32_t>(arr);
-                return Buffer<int32_t>(buf.host_alloc.get(), buf.dim_sizes);
+                return Buffer<int32_t>(buf.host_alloc.get(),
+                                       get_buf_sizes(buf.dim_sizes));
             }
         case DataType::Int16:
             {
                 NDArray<int16_t>& buf = get_ndarray<int16_t>(arr);
-                return Buffer<int16_t>(buf.host_alloc.get(), buf.dim_sizes);
+                return Buffer<int16_t>(buf.host_alloc.get(),
+                                       get_buf_sizes(buf.dim_sizes));
             }
         case DataType::Int8:
             {
                 NDArray<int8_t>& buf = get_ndarray<int8_t>(arr);
-                return Buffer<int8_t>(buf.host_alloc.get(), buf.dim_sizes);
+                return Buffer<int8_t>(buf.host_alloc.get(),
+                                      get_buf_sizes(buf.dim_sizes));
             }
         case DataType::UInt64:
             {
                 NDArray<uint64_t>& buf = get_ndarray<uint64_t>(arr);
-                return Buffer<uint64_t>(buf.host_alloc.get(), buf.dim_sizes);
+                return Buffer<uint64_t>(buf.host_alloc.get(),
+                                        get_buf_sizes(buf.dim_sizes));
             }
         case DataType::UInt32:
             {
                 NDArray<uint32_t>& buf = get_ndarray<uint32_t>(arr);
-                return Buffer<uint32_t>(buf.host_alloc.get(), buf.dim_sizes);
+                return Buffer<uint32_t>(buf.host_alloc.get(),
+                                        get_buf_sizes(buf.dim_sizes));
             }
         case DataType::UInt16:
             {
                 NDArray<uint16_t>& buf = get_ndarray<uint16_t>(arr);
-                return Buffer<uint16_t>(buf.host_alloc.get(), buf.dim_sizes);
+                return Buffer<uint16_t>(buf.host_alloc.get(),
+                                        get_buf_sizes(buf.dim_sizes));
             }
         case DataType::UInt8:
             {
                 NDArray<uint8_t>& buf = get_ndarray<uint8_t>(arr);
-                return Buffer<uint8_t>(buf.host_alloc.get(), buf.dim_sizes);
+                return Buffer<uint8_t>(buf.host_alloc.get(),
+                                       get_buf_sizes(buf.dim_sizes));
             }
             assert(0);
     }
@@ -98,7 +117,7 @@ void affine_forward_halide(std::string name,
         assert(0);
     }
 
-    forward.bound(unit_dim, 0, op->num_inputs)
+    forward.bound(unit_dim, 0, op->num_units)
            .bound(n, 0, op->batch_size);
 
     op_impl->output = forward;
@@ -182,6 +201,7 @@ void pool2d_forward_halide(std::string name,
     in_bound = BoundaryConditions::constant_exterior(input, 0,
                                                      0, op->input_width,
                                                      0, op->input_height);
+
     int p_w = op->pool_width;
     int p_h = op->pool_height;
 

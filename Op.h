@@ -48,7 +48,7 @@ class AffineOp: public Op {
         if (dim_id == 0) {
             size = batch_size;
         } else {
-            size = num_inputs;
+            size = num_units;
         }
         return size;
     }
@@ -243,7 +243,7 @@ class FlattenOp: public Op {
     int num_dims() { return 2; }
 
     int out_size(int dim_id) {
-        assert(dim_id < 4);
+        assert(dim_id < 2);
         int size = 0;
         if (dim_id == 0) {
             size = batch_size;
