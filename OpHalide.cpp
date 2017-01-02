@@ -134,10 +134,12 @@ void conv2d_forward_halide(std::string name,
                                                      0, op->input_height);
 
     ImageParam W(Float(32), 4);
-    ImageParam b(Float(32), 1);
-
     op_impl->params.push_back(W);
-    op_impl->params.push_back(b);
+
+    ImageParam b(Float(32), 1);
+    if (op->bias) {
+        op_impl->params.push_back(b);
+    }
 
     Func forward(name + "_forward");
     Func stage(name + "_stage");
@@ -155,7 +157,13 @@ void conv2d_forward_halide(std::string name,
 
     Var x, y, z, n;
     W_f(x, y, z, n) = W(x, y, z, n);
-    stage(x, y, z, n) = b(z);
+
+    if (op->bias) {
+        stage(x, y, z, n) = b(z);
+    } else {
+        stage(x, y, z, n) = 0.0f;
+    }
+
     stage(x, y, z, n) += W_f(r.x, r.y, r.z, z) *
                          in_bound(x * stride_w + r.x - pad_w,
                                   y * stride_h + r.y - pad_h,

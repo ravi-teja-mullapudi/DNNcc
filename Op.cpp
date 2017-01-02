@@ -47,13 +47,15 @@ Conv2dOp::Conv2dOp(int _output_channels,
                    int _filter_width,
                    int _stride_h,
                    int _stride_w,
-                   std::shared_ptr<Op> _input_op)
+                   std::shared_ptr<Op> _input_op,
+                   bool _bias)
                    : Op({_input_op}),
                     output_channels(_output_channels),
                     filter_height(_filter_height),
                     filter_width(_filter_width),
                     stride_h(_stride_h),
-                    stride_w(_stride_w)
+                    stride_w(_stride_w),
+                    bias(_bias)
 {
     assert(_input_op->num_dims() == 4);
 
@@ -74,7 +76,9 @@ Conv2dOp::Conv2dOp(int _output_channels,
                                   input_channels,
                                   filter_height,
                                   filter_width}, type));
-    params.push_back(get_ndarray_t({output_channels}, type));
+    if (bias) {
+        params.push_back(get_ndarray_t({output_channels}, type));
+    }
     // TODO: Create buffers for gradients
 }
 
@@ -143,6 +147,29 @@ LRNOp::LRNOp(int _window_size, float _alpha, float _beta,
     type = DataType::Float32;
 }
 
+BNCaffeOp::BNCaffeOp(float _epsilon, std::shared_ptr<Op> _input_op)
+          : Op({_input_op}),
+            epsilon(_epsilon)
+{
+    assert(_input_op->num_dims() == 4);
+    batch_size = _input_op->out_size(0);
+    output_channels = _input_op->out_size(1);
+    output_height = _input_op->out_size(2);
+    output_width = _input_op->out_size(3);
+    type = DataType::Float32;
+}
+
+ScaleCaffeOp::ScaleCaffeOp(std::shared_ptr<Op> _input_op)
+             : Op({_input_op})
+{
+    assert(_input_op->num_dims() == 4);
+    batch_size = _input_op->out_size(0);
+    output_channels = _input_op->out_size(1);
+    output_height = _input_op->out_size(2);
+    output_width = _input_op->out_size(3);
+    type = DataType::Float32;
+}
+
 ConcatOp::ConcatOp(std::vector<std::shared_ptr<Op>>& _input_ops)
                    : Op(_input_ops)
 {
@@ -187,17 +214,19 @@ DataOp::DataOp(const std::vector<int>& _dim_sizes)
     type = DataType::Float32;
 }
 
-SumOp::SumOp(const std::vector<int>& _dim_sizes,
-             std::vector<std::shared_ptr<Op>>& _input_ops)
-             : Op(_input_ops),
-               dim_sizes(_dim_sizes) {
+SumOp::SumOp(std::vector<std::shared_ptr<Op>>& _input_ops)
+             : Op(_input_ops) {
 
     type = DataType::Float32;
 
-    for (auto &op: input_ops) {
-        assert(op->num_dims() == (int)dim_sizes.size());
-        for (int d = 0; d < op->num_dims(); d++) {
-            assert(op->out_size(d) == dim_sizes[d]);
+    for (int d = 0; d < input_ops[0]->num_dims(); d++) {
+        dim_sizes.push_back(input_ops[0]->out_size(d));
+    }
+
+    for (size_t i = 1; i < input_ops.size(); i++) {
+        assert(input_ops[i]->num_dims() == (int)dim_sizes.size());
+        for (int d = 0; d < input_ops[i]->num_dims(); d++) {
+            assert(input_ops[i]->out_size(d) == dim_sizes[d]);
         }
     }
 }

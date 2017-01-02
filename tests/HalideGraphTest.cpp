@@ -101,7 +101,7 @@ void test_sum() {
     g.add_op("data2", data2, group_id);
 
     std::vector<std::shared_ptr<Op>> sum_ins = {data1, data2};
-    auto sum = std::make_shared<SumOp>(data_sizes, sum_ins);
+    auto sum = std::make_shared<SumOp>(sum_ins);
     g.add_op("sum", sum, group_id);
 
     g.group_impl[group_id] = std::make_tuple(OpImpl::HALIDE, TargetArch::CPU);

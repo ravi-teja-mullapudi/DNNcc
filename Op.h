@@ -71,6 +71,7 @@ class Conv2dOp: public Op {
     int stride_w;
     int pad_h;
     int pad_w;
+    bool bias;
 
     int num_dims() { return 4; }
 
@@ -94,7 +95,8 @@ class Conv2dOp: public Op {
              int _filter_width,
              int _stride_h,
              int _stride_w,
-             std::shared_ptr<Op> _input_op);
+             std::shared_ptr<Op> _input_op,
+             bool _bias = true);
 };
 
 enum PoolType {AVG, MAX};
@@ -175,6 +177,61 @@ class SoftMaxOp: public Op {
     }
 
     SoftMaxOp(std::shared_ptr<Op> _input_op);
+};
+
+class BNCaffeOp: public Op {
+    public:
+    int batch_size;
+    int output_channels;
+    int output_height;
+    int output_width;
+    float epsilon;
+
+    int num_dims() { return 4; }
+
+    int out_size(int dim_id) {
+        assert(dim_id < 4);
+        int size = 0;
+        if (dim_id == 0) {
+            size = batch_size;
+        } else if (dim_id == 1) {
+            size = output_channels;
+        } else if (dim_id == 2) {
+            size = output_height;
+        } else if (dim_id == 3) {
+            size = output_width;
+        }
+        return size;
+    }
+
+    BNCaffeOp(float _epsilon, std::shared_ptr<Op> _input_op);
+};
+
+class ScaleCaffeOp: public Op {
+    public:
+    int batch_size;
+    int output_channels;
+    int output_height;
+    int output_width;
+
+    int num_dims() { return 4; }
+
+    int out_size(int dim_id) {
+        assert(dim_id < 4);
+        int size = 0;
+        if (dim_id == 0) {
+            size = batch_size;
+        } else if (dim_id == 1) {
+            size = output_channels;
+        } else if (dim_id == 2) {
+            size = output_height;
+        } else if (dim_id == 3) {
+            size = output_width;
+        }
+        return size;
+    }
+
+    ScaleCaffeOp(std::shared_ptr<Op> _input_op);
 };
 
 class LRNOp: public Op {
@@ -281,8 +338,7 @@ class SumOp: public Op {
         return dim_sizes[dim_id];
     }
 
-    SumOp(const std::vector<int>& _dim_sizes,
-          std::vector<std::shared_ptr<Op>>& _input_ops);
+    SumOp(std::vector<std::shared_ptr<Op>>& _input_ops);
 };
 
 NDArray_t get_ndarray_t(const std::vector<int>& sizes, DataType type);
