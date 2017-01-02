@@ -135,7 +135,7 @@ LRNOp::LRNOp(int _window_size, float _alpha, float _beta,
                alpha(_alpha),
                beta(_beta)
 {
-    assert(_input_op->num_dims() == 2);
+    assert(_input_op->num_dims() == 4);
     batch_size = _input_op->out_size(0);
     input_channels = _input_op->out_size(1);
     input_height = _input_op->out_size(2);

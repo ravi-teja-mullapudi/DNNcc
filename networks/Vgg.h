@@ -16,7 +16,7 @@ add_conv_relu(Graph& g, int num_filters, int filter_height,
     return relu;
 }
 
-void Vgg16(Graph& g) {
+void Vgg16(Graph& g, int batch_size, int channels, int data_height, int data_width) {
 
     // Network structure
     // input -> conv1_1 -> relu1_1 -> conv1_2 -> relu1_2 -> pool1 ->
@@ -28,7 +28,6 @@ void Vgg16(Graph& g) {
 
     int group_id = g.add_group();
 
-    int batch_size(16), channels(3), data_height(224), data_width(224);
     auto data_sizes = {batch_size, channels, data_height, data_width};
     auto data = std::make_shared<DataOp>(data_sizes);
     g.add_op("data", data, group_id);

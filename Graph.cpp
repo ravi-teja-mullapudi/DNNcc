@@ -19,6 +19,7 @@ void Graph::set_params(Params& params) {
         }
     }
 }
+
 void Graph::get_params(Params &params) {
     // Not implemented yet
     assert(0);
@@ -54,24 +55,28 @@ void Graph::build_forward_halide(unsigned int group_id) {
     TargetArch arch = std::get<1>(group_impl[group_id]);
 
     for (auto &in: group_ins[group_id]) {
-        assert(groups[group_id][in]->num_dims() <= 4);
+        assert(ops.at(in)->num_dims() <= 4);
         halide_op_ins[group_id][in] =
-            ImageParam(Float(32), groups[group_id][in]->num_dims());
+            ImageParam(Float(32), ops.at(in)->num_dims());
     }
 
     for (auto &op_name: order[group_id]) {
-        auto op = groups[group_id][op_name];
+        auto op = groups[group_id].at(op_name);
         std::vector<Func> ins;
         for (size_t in = 0; in < op->input_ops.size(); in++) {
             auto in_name = op_name_map[op->input_ops[in]];
 
-            if (halide_ops.find(in_name) == halide_ops.end()) {
-                assert(halide_op_ins[group_id].find(in_name) !=
-                        halide_op_ins[group_id].end());
+            // First check in the inputs to the group
+            if (halide_op_ins[group_id].find(in_name) !=
+                    halide_op_ins[group_id].end()) {
 
                 ins.push_back(halide_op_ins[group_id][in_name]);
+            // Check for inputs within the group
+            } else if (groups[group_id].find(in_name) !=
+                        groups[group_id].end()) {
+                ins.push_back(halide_ops.at(in_name)->output);
             } else {
-                ins.push_back(halide_ops[in_name]->output);
+                assert(0);
             }
         }
 
@@ -127,7 +132,6 @@ void Graph::build_forward_halide(unsigned int group_id) {
 
         } else if (std::dynamic_pointer_cast<ConcatOp>(op) != nullptr) {
 
-            assert(ins.size() == 1);
             auto op_cast = std::dynamic_pointer_cast<ConcatOp>(op);
             concat_forward_halide(op_name, op_cast, ins,
                                   halide_ops[op_name], arch);
@@ -184,7 +188,13 @@ void Graph::build_forward_halide(unsigned int group_id) {
 
     Pipeline p(outs);
     halide_pipelines[group_id] = p;
+
+    auto start = std::chrono::steady_clock::now();
     halide_pipelines[group_id].compile_jit(target);
+    auto end = std::chrono::steady_clock::now();
+    std::cout << "Group " << group_id << " compile time: " <<
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+        << "ms" << std::endl;
 }
 
 void Graph::build_forward_ref(unsigned int group_id) {
@@ -223,10 +233,27 @@ void Graph::build_forward_group(unsigned int group_id,
     }
 
     // Get the input ops for the group.
+    std::set<std::string> in_set;
     for (auto &dep: num_prods) {
         if (dep.second == 0) {
-            group_ins[group_id].push_back(dep.first);
+            auto op = ops[dep.first];
+            if (std::dynamic_pointer_cast<DataOp>(op) != nullptr) {
+                if (in_set.find(dep.first) == in_set.end()) {
+                    in_set.insert(dep.first);
+                }
+            } else {
+                for (size_t i = 0; i < op->input_ops.size(); i++) {
+                    auto in_name = op_name_map.at(op->input_ops[i]);
+                    if (in_set.find(in_name) == in_set.end()) {
+                        in_set.insert(in_name);
+                    }
+                }
+            }
         }
+    }
+
+    for (auto &in: in_set) {
+        group_ins[group_id].push_back(in);
     }
 
     // Get the output ops for the group.

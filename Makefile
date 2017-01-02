@@ -31,7 +31,7 @@ graph.o: Op.h OpImpl.h Graph.h Graph.cpp ModelIO.h modelio.o op.o halide_op.o re
 
 classify: ImagenetClassification.cpp networks/Vgg.h graph.o op.o halide_op.o ref_op.o
 	$(CXX) $(CXXFLAGS) ImagenetClassification.cpp graph.o ref_op.o op.o halide_op.o $(HALIDE_INC) \
-					   -I./ $(HALIDE_LIB) -o classify
+					   -I./ $(HALIDE_LIB) $(BOOST_LIB) -o classify
 
 load_caffe_params.o: LoadCaffeParams.cpp LoadCaffeParams.h ModelIO.h
 	$(CXX) $(CXXFLAGS) LoadCaffeParams.cpp -c $(CAFFE_INC) $(CAFFE_LIB) -o load_caffe_params.o

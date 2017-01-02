@@ -3,7 +3,7 @@
 
 int main() {
     Graph g;
-    Vgg16(g);
+    Vgg16(g, 16, 3, 224, 224);
 
     g.group_impl[0] = std::make_tuple(OpImpl::HALIDE, TargetArch::CPU);
     g.build_forward({"prob"});

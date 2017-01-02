@@ -79,8 +79,8 @@ Buffer<> get_halide_buffer(NDArray_t& arr,
 void check_defined(Func f)
 {
     if (!f.defined()) {
-        std::cout << f.name() << " is undefined" << std::endl;
-        exit(-1);
+        std::cerr << f.name() << " is undefined" << std::endl;
+        assert(0);
     }
 }
 
@@ -345,6 +345,44 @@ void lrn_forward_halide(std::string name,
                         std::shared_ptr<OpHalideImpl> op_impl,
                         TargetArch arch) {
     check_defined(input);
+    Func in_bound(name + "_bound");
+    in_bound = BoundaryConditions::constant_exterior(input, 0,
+                                                     0, op->input_width,
+                                                     0, op->input_height,
+                                                     0, op->input_channels);
+
+    int w_size = op->window_size;
+    float alpha = op->alpha;
+    float beta = op->beta;
+
+    RDom r(0, w_size);
+    Func square_sum(name + "_square_sum");
+    Func forward(name + "_forward");
+
+    Var x, y, z, n;
+    square_sum(x, y, z, n) = 0.0f;
+    Expr val = in_bound(x, y, z + r.x - w_size/2, n);
+    square_sum(x, y, z, n) += val * val;
+
+    Expr norm_factor = pow(1.0f + (alpha/(w_size)) *
+                           square_sum(x, y, z, n), beta);
+    forward(x, y, z, n) = in_bound(x, y, z, n)/norm_factor;
+
+    if (arch == TargetArch::CPU) {
+        if (op->batch_size > 1) {
+            forward.compute_root().parallel(n);
+        }
+        forward.vectorize(x, 8);
+    } else if (arch == TargetArch::GPU) {
+        assert(0);
+    }
+
+    forward.bound(x, 0, op->input_width)
+           .bound(y, 0, op->input_height)
+           .bound(z, 0, op->input_channels)
+           .bound(n, 0, op->batch_size);
+
+    op_impl->output = forward;
 }
 
 void concat_forward_halide(std::string name,
@@ -352,9 +390,43 @@ void concat_forward_halide(std::string name,
                            std::vector<Func> inputs,
                            std::shared_ptr<OpHalideImpl> op_impl,
                            TargetArch arch) {
+
     for (auto &in: inputs) {
         check_defined(in);
     }
+
+    Var x, y, z, n;
+    Func forward(name + "_forward");
+
+    forward(x, y, z, n) = 0.0f;
+
+    int curr_size = 0;
+    std::vector<RDom> rdoms;
+    for (size_t l = 0; l < inputs.size(); l++) {
+        int in_size = op->input_ops[l]->out_size(1);
+        rdoms.push_back(RDom(0, in_size));
+        forward(x, y, curr_size + rdoms[l].x, n) = inputs[l](x, y, rdoms[l].x, n);
+        curr_size += in_size;
+    }
+
+    if (arch == TargetArch::CPU) {
+        forward.compute_root();
+        if (op->batch_size > 1) {
+            forward.parallel(n);
+            for (size_t i = 0; i < inputs.size(); i++) {
+                forward.update(i).parallel(n);
+            }
+        }
+
+        forward.bound(x, 0, op->input_width)
+               .bound(y, 0, op->input_height)
+               .bound(z, 0, op->output_channels)
+               .bound(n, 0, op->batch_size);
+    } else if (arch == TargetArch::GPU) {
+        assert(0);
+    }
+
+    op_impl->output = forward;
 }
 
 void flatten_forward_halide(std::string name,

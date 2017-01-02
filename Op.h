@@ -184,8 +184,8 @@ class LRNOp: public Op {
     int input_height;
     int input_width;
     int window_size;
-    int alpha;
-    int beta;
+    float alpha;
+    float beta;
 
     int num_dims() { return 4; }
 
