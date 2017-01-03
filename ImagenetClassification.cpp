@@ -1,5 +1,6 @@
 #include "networks/Vgg.h"
 #include "networks/Googlenet.h"
+#include "networks/Resnet.h"
 #include "Graph.h"
 
 int main() {

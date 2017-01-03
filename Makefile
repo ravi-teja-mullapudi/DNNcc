@@ -29,7 +29,8 @@ ref_op.o: Op.h OpImpl.h OpRef.h OpRef.cpp NDArray.h
 graph.o: Op.h OpImpl.h Graph.h Graph.cpp ModelIO.h modelio.o op.o halide_op.o ref_op.o
 	$(CXX) $(CXXFLAGS) Graph.cpp -c $(HALIDE_INC) -o graph.o
 
-classify: ImagenetClassification.cpp networks/Vgg.h graph.o op.o halide_op.o ref_op.o
+classify: ImagenetClassification.cpp networks/Vgg.h networks/Googlenet.h networks/Resnet.h \
+		  graph.o op.o halide_op.o ref_op.o
 	$(CXX) $(CXXFLAGS) ImagenetClassification.cpp graph.o ref_op.o op.o halide_op.o $(HALIDE_INC) \
 					   -I./ $(HALIDE_LIB) $(BOOST_LIB) -o classify
 

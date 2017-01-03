@@ -1,12 +1,12 @@
 #include "Graph.h"
 std::shared_ptr<Op>
-conv_bn_scale(Graph& g, std::vector<std::string>& names,
+conv_bn_scale(Graph& g, const std::vector<std::string>& names,
               std::shared_ptr<Op> in, int group_id,
               int num_filters, int filter_height,
               int filter_width, int stride, bool conv_bias) {
 
     auto conv = std::make_shared<Conv2dOp>(num_filters, filter_height, filter_width,
-                                           stride, stride, data, conv_bias);
+                                           stride, stride, in, conv_bias);
     g.add_op(names[0], conv, group_id);
 
     float epsilon = 1e-5;
@@ -20,7 +20,7 @@ conv_bn_scale(Graph& g, std::vector<std::string>& names,
 }
 
 std::shared_ptr<Op>
-conv_bn_scale_relu(Graph& g, std::vector<std::string>& names,
+conv_bn_scale_relu(Graph& g, const std::vector<std::string>& names,
                    std::shared_ptr<Op> in, int group_id,
                    int num_filters, int filter_height,
                    int filter_width, int stride, bool conv_bias) {
@@ -37,9 +37,9 @@ conv_bn_scale_relu(Graph& g, std::vector<std::string>& names,
 }
 
 std::shared_ptr<Op>
-residual_3unit(Graph& g, std::string name, std::shared_ptr<Op> in,
+residual_unit(Graph& g, std::string name, std::shared_ptr<Op> in,
                int group_id, std::vector<int> filter_sizes,
-               int downsample_stride, bool downsample) {
+               int downsample_stride, bool downsample, bool three_stages) {
 
     std::vector<std::string> names_2a = { "res" + name + "_branch2a",
                                         "bn" + name + "_branch2a",
@@ -62,23 +62,29 @@ residual_3unit(Graph& g, std::string name, std::shared_ptr<Op> in,
                                           "bn" + name + "_branch2c",
                                           "scale" + name + "_branch2c"};
 
-    auto res_branch2c = conv_bn_scale(g, names4, res_branch2b, group_id,
-                                     filter_sizes[2], 1, 1, 1, false);
+    auto res_branch2c = conv_bn_scale(g, names_2c, res_branch2b, group_id,
+                                      filter_sizes[2], 1, 1, 1, false);
 
-    std::vector<std::shared_ptr<Op>> sum_ins = {in, res_branch2c};
+    std::vector<std::shared_ptr<Op>> sum_ins;
+    if (three_stages) {
+        sum_ins = {in, res_branch2c};
+    } else {
+        sum_ins = {in, res_branch2b};
+    }
+
     auto sum = std::make_shared<SumOp>(sum_ins);
-    g.add_op(g, "res" + name, sum, group_id);
+    g.add_op("res" + name, sum, group_id);
 
     float slope = 0.0f;
     auto relu = std::make_shared<ReLUOp>(slope, sum);
-    g.add_op(g, "res" + name + "_relu", relu, group_id);
+    g.add_op("res" + name + "_relu", relu, group_id);
 
     return relu;
 }
 
 std::shared_ptr<Op>
 stem(Graph& g, int group_id, int batch_size, int channels,
-     int data_height, data_width) {
+     int data_height, int data_width) {
 
     auto data_sizes = {batch_size, channels, data_height, data_width};
     auto data = std::make_shared<DataOp>(data_sizes);
@@ -88,9 +94,9 @@ stem(Graph& g, int group_id, int batch_size, int channels,
 
     std::vector<std::string> names = {"conv1", "bn_conv1",
                                       "scale_conv1", "conv1_relu"};
-    auto conv1_relu = conv_bn_scale_relu(g, "conv1", names, group_id,
+    auto conv1_relu = conv_bn_scale_relu(g, names, data, group_id,
                                          num_filters, filter_height,
-                                         filter_width, stride, data, true);
+                                         filter_width, stride, true);
 
     int p_h(3), p_w(3), p_stride(2);
     auto pool1 = std::make_shared<Pool2dOp>(p_h, p_w, p_stride, p_stride,
@@ -100,23 +106,24 @@ stem(Graph& g, int group_id, int batch_size, int channels,
 }
 
 std::shared_ptr<Op>
-resnet_3unit(Graph& g, int& group_id, std::vector<std::vector<int>>& res_sizes,
-             std::vector<std::vector<std::string>>& res_names,
-             std::vector<int>& res_strides, std::shared_ptr<Op> in) {
+resnet_unit(Graph& g, int& group_id, std::vector<std::vector<int>>& res_sizes,
+            std::vector<std::vector<std::string>>& res_names,
+            std::vector<int>& res_strides, std::shared_ptr<Op> in,
+            bool three_stages) {
 
     std::shared_ptr<Op> res_in = in;
     std::shared_ptr<Op> res_out;
     for (size_t r = 0; r < res_sizes.size(); r++) {
-        std::vector<std::string> branch_names = { "res" + res_names[0] + "_branch1",
-                                                  "bn" +  res_names[0] + "_branch1",
-                                                  "scale" + res_names[0] + "_branch1"};
+        std::vector<std::string> branch_names = { "res" + res_names[r][0] + "_branch1",
+                                                  "bn" +  res_names[r][0] + "_branch1",
+                                                  "scale" + res_names[r][0] + "_branch1"};
         res_out = conv_bn_scale(g, branch_names, res_in, group_id,
                                 res_sizes[r][2], 1, 1, res_strides[r], false);
         res_in = res_out;
         bool downsample = true;
         for (auto &name: res_names[r]) {
-            res_out = residual_3unit(g, name, res_in, group_id, res_sizes[r],
-                                     res_strides[r], downsample);
+            res_out = residual_unit(g, name, res_in, group_id, res_sizes[r],
+                                    res_strides[r], downsample, three_stages);
             res_in = res_out;
             group_id = g.add_group();
             downsample = false;
@@ -128,7 +135,7 @@ resnet_3unit(Graph& g, int& group_id, std::vector<std::vector<int>>& res_sizes,
 std::shared_ptr<Op>
 resnet_classify(Graph& g, int group_id, std::shared_ptr<Op> in) {
 
-    int p_w(7), p_h(7), p_sride(1);
+    int p_w(7), p_h(7), p_stride(1);
     auto pool5 = std::make_shared<Pool2dOp>(p_h, p_w, p_stride, p_stride,
                                             PoolType::AVG, in);
     g.add_op("pool5", pool5, group_id);
@@ -143,21 +150,64 @@ resnet_classify(Graph& g, int group_id, std::shared_ptr<Op> in) {
     auto softm = std::make_shared<SoftMaxOp>(fc1000);
     g.add_op("prob", softm, group_id);
 
-    return sotfm;
+    return softm;
 }
 
 void Resnet18(Graph& g, int batch_size, int channels,
               int data_height, int data_width) {
+
     int group_id = g.add_group();
     auto pool1 = stem(g, group_id, batch_size, channels,
                       data_height, data_width);
+
+    group_id = g.add_group();
+    std::vector<std::vector<int>> res_sizes = { {64, 64},
+                                                {128, 128},
+                                                {256, 256},
+                                                {512, 512} };
+
+    std::vector<int> res_strides = {1, 2, 2, 2};
+
+    std::vector<std::vector<std::string>> res_names = {{"2a", "2b"},
+                                                       {"3a", "3b"},
+                                                       {"4a", "4b"},
+                                                       {"5a", "5b"}};
+
+    auto res5c = resnet_unit(g, group_id, res_sizes, res_names,
+                              res_strides, pool1, false);
+
+    group_id = g.add_group();
+
+    auto prob = resnet_classify(g, group_id, res5c);
+
 }
 
 void Resnet34(Graph& g, int batch_size, int channels,
               int data_height, int data_width) {
+
     int group_id = g.add_group();
     auto pool1 = stem(g, group_id, batch_size, channels,
                       data_height, data_width);
+
+    group_id = g.add_group();
+    std::vector<std::vector<int>> res_sizes = { {64, 64},
+                                                {128, 128},
+                                                {256, 256},
+                                                {512, 512} };
+
+    std::vector<int> res_strides = {1, 2, 2, 2};
+
+    std::vector<std::vector<std::string>> res_names = {{"2a", "2b", "2c"},
+                                                       {"3a", "3b", "3c", "3d"},
+                                                       {"4a", "4b", "4c", "4d", "4e", "4f"},
+                                                       {"5a", "5b", "5c"}};
+
+    auto res5c = resnet_unit(g, group_id, res_sizes, res_names,
+                              res_strides, pool1, false);
+
+    group_id = g.add_group();
+
+    auto prob = resnet_classify(g, group_id, res5c);
 }
 
 void Resnet50(Graph& g, int batch_size, int channels,
@@ -181,8 +231,8 @@ void Resnet50(Graph& g, int batch_size, int channels,
                                                        {"4a", "4b", "4c", "4d", "4e", "4f"},
                                                        {"5a", "5b", "5c"}};
 
-    auto res5c = resnet_3unit(g, group_id, res_sizes, res_names,
-                              res_strides, pool1);
+    auto res5c = resnet_unit(g, group_id, res_sizes, res_names,
+                              res_strides, pool1, true);
 
     group_id = g.add_group();
 
@@ -194,6 +244,34 @@ void Resnet101(Graph& g, int batch_size, int channels,
     int group_id = g.add_group();
     auto pool1 = stem(g, group_id, batch_size, channels,
                       data_height, data_width);
+
+    group_id = g.add_group();
+    std::vector<std::vector<int>> res_sizes = { {64, 64, 256},
+                                                {128, 128, 512},
+                                                {256, 256, 1024},
+                                                {512, 512, 2048} };
+
+    std::vector<int> res_strides = {1, 2, 2, 2};
+
+    std::vector<std::vector<std::string>> res_names;
+    res_names.push_back({"2a", "2b", "2c"});
+    res_names.push_back({"3a", "3b1", "3b2", "3b3"});
+
+    std::vector<std::string> names_res4;
+    names_res4.push_back("4a");
+    for (int i = 1; i < 23; i++) {
+        names_res4.push_back("4b" + std::to_string(i));
+    }
+    res_names.push_back(names_res4);
+
+    res_names.push_back({"5a", "5b", "5c"});
+
+    auto res5c = resnet_unit(g, group_id, res_sizes, res_names,
+                              res_strides, pool1, true);
+
+    group_id = g.add_group();
+
+    auto prob = resnet_classify(g, group_id, res5c);
 }
 
 void Resnet152(Graph& g, int batch_size, int channels,
@@ -201,4 +279,32 @@ void Resnet152(Graph& g, int batch_size, int channels,
     int group_id = g.add_group();
     auto pool1 = stem(g, group_id, batch_size, channels,
                       data_height, data_width);
+
+    group_id = g.add_group();
+    std::vector<std::vector<int>> res_sizes = { {64, 64, 256},
+                                                {128, 128, 512},
+                                                {256, 256, 1024},
+                                                {512, 512, 2048} };
+
+    std::vector<int> res_strides = {1, 2, 2, 2};
+
+    std::vector<std::vector<std::string>> res_names;
+    res_names.push_back({"2a", "2b", "2c"});
+    res_names.push_back({"3a", "3b1", "3b2", "3b3", "3b4", "3b5"});
+
+    std::vector<std::string> names_res4;
+    names_res4.push_back("4a");
+    for (int i = 1; i < 36; i++) {
+        names_res4.push_back("4b" + std::to_string(i));
+    }
+    res_names.push_back(names_res4);
+
+    res_names.push_back({"5a", "5b", "5c"});
+
+    auto res5c = resnet_unit(g, group_id, res_sizes, res_names,
+                             res_strides, pool1, true);
+
+    group_id = g.add_group();
+
+    auto prob = resnet_classify(g, group_id, res5c);
 }
