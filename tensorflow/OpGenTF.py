@@ -76,6 +76,16 @@ def gen_shape_fn(output_shapes):
     shape_fn.append(body)
     return str(c.Module(shape_fn))
 
+def gen_kernel_build_macro(op_name, kernel_class_name):
+    name_str = "Name(\"%s\")" %(op_name)
+    device_str = "Device(%s)" %("DEVICE_CPU")
+    reg_str = ".".join([name_str, device_str])
+
+    macro_name = "REGISTER_KERNEL_BUILDER";
+    macro_args = ", ".join([reg_str, kernel_class_name])
+    macro_call = macro_name + "(" + macro_args+ ")"
+    return macro_call
+
 def gen_op_registration(op_name, attrs, inputs, outputs,
                         output_shapes, kernel_class_name):
     # Add the headers into the module
@@ -93,6 +103,11 @@ def gen_op_registration(op_name, attrs, inputs, outputs,
     # Registration macro
     reg_macro = gen_reg_op_macro_str(op_name, attrs, inputs, outputs, shape_fn)
     contents.append(c.Statement(reg_macro))
+
+    contents.append(c.Line())
+    kernel_build_macro = gen_kernel_build_macro(op_name, kernel_class_name)
+    contents.append(c.Statement(kernel_build_macro))
+
     return c.Module(contents)
 
 def gen_op_kernel_constructor(class_name):
