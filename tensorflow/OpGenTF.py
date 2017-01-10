@@ -49,7 +49,7 @@ def gen_reg_op_macro_str(op_name, attrs, inputs, outputs, shape_fn):
     macro_call.extend(get_attr_strs(attrs))
     macro_call.extend(get_spec_strs(inputs, "Input"))
     macro_call.extend(get_spec_strs(outputs, "Output"))
-    macro_call.extend(["Shape(" + shape_fn + ")"])
+    macro_call.extend(["SetShapeFn(" + shape_fn + ")"])
     macro_str = "\n.".join(macro_call)
     return macro_str
 
@@ -85,30 +85,6 @@ def gen_kernel_build_macro(op_name, kernel_class_name):
     macro_args = ", ".join([reg_str, kernel_class_name])
     macro_call = macro_name + "(" + macro_args+ ")"
     return macro_call
-
-def gen_op_registration(op_name, attrs, inputs, outputs,
-                        output_shapes, kernel_class_name):
-    # Add the headers into the module
-    contents = []
-    contents.append(c.Include("tensorflow/core/framework/op.h", system = False))
-    contents.append(c.Include("tensorflow/core/framework/shape_inference.h", system = False))
-
-    # Name space declarations
-    contents.append(c.Line())
-    contents.append(c.Statement("using namespace tensorflow"))
-    contents.append(c.Line())
-
-    shape_fn = gen_shape_fn(output_shapes);
-
-    # Registration macro
-    reg_macro = gen_reg_op_macro_str(op_name, attrs, inputs, outputs, shape_fn)
-    contents.append(c.Statement(reg_macro))
-
-    contents.append(c.Line())
-    kernel_build_macro = gen_kernel_build_macro(op_name, kernel_class_name)
-    contents.append(c.Statement(kernel_build_macro))
-
-    return c.Module(contents)
 
 def gen_op_kernel_constructor(class_name):
     constructor = []
@@ -147,18 +123,35 @@ def gen_op_kernel_class_defn(class_name):
     class_defn.append(c.Line(";"))
     return class_defn
 
-def gen_op_kernel(kernel_class_name):
+def gen_op(op_name, attrs, inputs, outputs,
+           output_shapes, kernel_class_name,
+           kernel_header):
+    # Add the headers into the module
     contents = []
+    contents.append(c.Include("tensorflow/core/framework/op.h", system = False))
+    contents.append(c.Include("tensorflow/core/framework/shape_inference.h", system = False))
     contents.append(c.Include("tensorflow/core/framework/op_kernel.h", system = False))
+    contents.append(c.Include(kernel_header, system = False))
 
     # Name space declarations
     contents.append(c.Line())
     contents.append(c.Statement("using namespace tensorflow"))
     contents.append(c.Line())
 
-    class_defn = gen_op_kernel_class_defn(kernel_class_name)
+    shape_fn = gen_shape_fn(output_shapes);
 
+    # Registration macro
+    reg_macro = gen_reg_op_macro_str(op_name, attrs, inputs, outputs, shape_fn)
+    contents.append(c.Statement(reg_macro))
+
+    contents.append(c.Line())
+    class_defn = gen_op_kernel_class_defn(kernel_class_name)
     contents.extend(class_defn)
+
+    contents.append(c.Line())
+    kernel_build_macro = gen_kernel_build_macro(op_name, kernel_class_name)
+    contents.append(c.Statement(kernel_build_macro))
+
     return c.Module(contents)
 
 def gen_op_python_wrapper():
@@ -167,12 +160,13 @@ def gen_op_python_wrapper():
 def gen_op_gradient():
     return
 
-print(gen_op_registration("ZeroOut",
-                          {},
-                          [("to_zero", "int32")],
-                          [("zeroed", "int32")],
-                          [(0, [1000])],
-                          "ZeroOutOp"
-                          ))
-
-print(gen_op_kernel("ZeroOutOp"))
+op_reg_file = open('zero_op.cpp', 'w')
+op_reg_file.write(gen_op("Zero",
+                         {},
+                         [("to_zero", "int32")],
+                         [("zeroed", "int32")],
+                         [(0, [1000])],
+                         "ZeroOp",
+                         "gen_halide_zero_op.h"
+                        ).__str__())
+op_reg_file.close()

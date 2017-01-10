@@ -1,0 +1,4 @@
+*Check out AllocatorAttributes to figure out how to perform the allocation
+on the right device
+/core/framework/op_kernel.h
+*CUDA GPU context managment will be a mess between Halide and tf
