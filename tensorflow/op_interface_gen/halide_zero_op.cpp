@@ -7,7 +7,7 @@ int main() {
 
     Var x;
     Func f("zero_op");
-    f(x) = select(x == 0, input(0), 0);
+    f(x) = select(x == 0, input(0), x*x);
 
     Target t = get_target_from_environment();
 
