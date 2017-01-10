@@ -13,7 +13,7 @@ zero_op_gen: halide_zero_op.cpp
 	./zero_op_gen
 
 zero_op.so: zero_op_gen zero_op.cpp
-	$(CXX) -O2 -std=c++11 -shared zero_op.cpp -o zero_op.so -fPIC -I $(TF_INC)
+	$(CXX) -O2 -std=c++11 -shared zero_op.cpp gen_halide_zero_op.a -o zero_op.so -fPIC -I $(TF_INC)
 
 clean:
 	rm -rf zero_op_gen gen_halide_zero_op.a gen_halide_zero_op.h zero_op.so
