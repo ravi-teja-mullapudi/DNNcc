@@ -17,7 +17,8 @@ int main() {
     norm(x, y, z, n) = ((input(x, y, z, n) - mean(z)) *
                         (std_inv * gamma(z))) + beta(z);
 
-    //norm.vectorize(x, 8);
+    // Schedule
+    norm.vectorize(x, 8).parallel(n);
 
     Target t = get_target_from_environment();
 

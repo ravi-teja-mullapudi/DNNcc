@@ -1,5 +1,15 @@
-TF_INC :=$(shell python -c 'import tensorflow as tf; print(tf.sysconfig.get_include())')
+CXX ?= g++
+CXXFLAGS += -O2 -g -Wall -std=c++11 -rdynamic
+
+TF_INC = /usr/local/lib/python2.7/dist-packages/tensorflow/include
 INC=-I${TF_INC}
+
+HALIDE_PATH = /home/ravi/Halide
+HALIDE_INC += -I$(HALIDE_PATH)/include -I$(HALIDE_PATH)/tools
+HALIDE_LIB += -L$(HALIDE_PATH)/bin -lHalide
+
+all: layer_norm_fused_op
+
 layer_norm_fused_op: register_ops.cc layer_norm_fused_op.h layer_norm_fused_op.cc layer_norm_fused_grad_op.cc layer_norm_fused_op_gpu.cu.cc
 	nvcc -std=c++11 -c -o layer_norm_fused_op_gpu.cu.o layer_norm_fused_op_gpu.cu.cc \
 	$(INC) -D GOOGLE_CUDA=1 -x cu -Xcompiler -fPIC --expt-relaxed-constexpr -arch=sm_61
@@ -7,5 +17,11 @@ layer_norm_fused_op: register_ops.cc layer_norm_fused_op.h layer_norm_fused_op.c
 	layer_norm_fused_grad_op.cc layer_norm_fused_op.cc layer_norm_fused_op_gpu.cu.o \
 	$(INC) -L /usr/local/cuda/lib64/ -fPIC -lcudart -O2 -DNDEBUG
 
+lnorm_gen: halide_layer_norm.cpp
+	$(CXX) $(CXXFLAGS) halide_layer_norm.cpp -o lnorm_gen \
+		${HALIDE_LIB} ${HALIDE_INC}
+	./lnorm_gen
+
 clean:
-	rm -rf layer_norm_fused_op.so layer_norm_fused_op_gpu.cu.o
+	rm -rf layer_norm_fused_op.so layer_norm_fused_op_gpu.cu.o lnorm_gen \
+		   gen_halide_ln_2d.a gen_halide_ln_2d.h gen_halide_ln_4d.a gen_halide_ln_4d.h

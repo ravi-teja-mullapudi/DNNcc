@@ -67,5 +67,5 @@ def benchmark_batch_norm(batch_size,
     best_time = run_sub_graph(out_dict, num_runs)
     return best_time
 
-print("%f ms" % (benchmark_batch_norm(128, 64, 64, 64, 1e-05, True, 5, '/cpu:0')))
-print("%f ms" % (benchmark_batch_norm(128, 64, 64, 64, 1e-05, False, 5, '/gpu:0')))
+print("%f ms" % (benchmark_batch_norm(128, 64, 64, 64, 1e-05, True, 100, '/cpu:0')))
+print("%f ms" % (benchmark_batch_norm(128, 64, 64, 64, 1e-05, False, 100, '/cpu:0')))
