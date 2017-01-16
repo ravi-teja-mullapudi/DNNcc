@@ -17,11 +17,13 @@ int main() {
     norm(x, y, z, n) = ((input(x, y, z, n) - mean(z)) *
                         (std_inv * gamma(z))) + beta(z);
 
+    //norm.vectorize(x, 8);
+
     Target t = get_target_from_environment();
 
-    norm.compile_to_static_library("gen_halide_bn_inference",
+    norm.compile_to_static_library("gen_halide_bn",
                                     {input, mean, var, beta, gamma, eps},
-                                    "halide_bn_inference",
+                                    "halide_bn",
                                     t);
     return 0;
 }

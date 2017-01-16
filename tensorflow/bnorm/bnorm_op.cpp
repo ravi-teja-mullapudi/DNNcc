@@ -1,7 +1,7 @@
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/framework/op_kernel.h"
-#include "gen_halide_bn_inference.h"
+#include "gen_halide_bn.h"
 
 using namespace tensorflow;
 
@@ -118,9 +118,9 @@ class BnormOp: public OpKernel {
         buffer_t norm_buf = {0};
         init_halide_buf(norm_buf, norm);
 
-        halide_bn_inference(&in_buf, &mean_buf, &var_buf,
-                            &beta_buf, &gamma_buf, 1e-04,
-                            &norm_buf);
+        halide_bn(&in_buf, &mean_buf, &var_buf,
+                  &beta_buf, &gamma_buf, 1e-04,
+                  &norm_buf);
     }
 };
 
