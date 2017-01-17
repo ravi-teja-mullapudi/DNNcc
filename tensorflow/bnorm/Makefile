@@ -14,8 +14,9 @@ bnorm_gen: halide_bnorm.cpp
 		${HALIDE_LIB} ${HALIDE_INC}
 	./bnorm_gen
 
-bnorm_op.so: bnorm_gen bnorm_op.cpp
-	$(CXX) -O2 -std=c++11 -shared bnorm_op.cpp gen_halide_bn.a -o bnorm_op.so -fPIC -I $(TF_INC)
+bnorm_op.so: bnorm_gen bnorm_op.cpp ../op_interface_gen/tf_halide_utils.h
+	$(CXX) -O2 -std=c++11 -shared bnorm_op.cpp gen_halide_bn.a -o bnorm_op.so \
+		   -fPIC -I $(TF_INC) -I ../op_interface_gen/
 
 clean:
 	rm -rf bnorm_gen gen_halide_bn.h gen_halide_bn.a bnorm_op.so timeline.json
